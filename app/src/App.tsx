@@ -33,7 +33,7 @@ function Kopf() {
     <header className="wolken sicher-oben nicht-drucken sticky top-0 z-30 text-white shadow-md">
       <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2">
         <Link to="/" className="flex flex-1 items-center gap-2.5" aria-label="Startseite">
-          <img src="icons/logo.svg" alt="" className="h-10 w-10 rounded-full bg-white ring-2 ring-white/70" />
+          <img src="icons/logo.png" alt="" className="h-11 w-11 rounded-full bg-white ring-2 ring-white/80" />
           <span className="leading-tight">
             <span className="block text-lg font-extrabold tracking-tight">{config.name}</span>
             <span className="block text-[11px] font-medium opacity-90">{config.untertitel}</span>

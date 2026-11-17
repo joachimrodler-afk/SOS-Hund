@@ -100,9 +100,12 @@ function Oeffentlich({ d }: { d: StartDaten | null }) {
   return (
     <div className="space-y-4">
       <div className="karte overflow-hidden">
-        <div className="wolken p-5 text-white">
-          <h1 className="text-2xl font-extrabold">{d?.einstellungen.netzwerkName ?? config.name}</h1>
-          <p className="opacity-90">{config.untertitel}</p>
+        <div className="wolken flex items-center gap-4 p-5 text-white">
+          <img src="icons/logo-gross.png" alt="Logo SOS-Hund – Netzwerk & Sicherung" className="h-24 w-24 shrink-0 rounded-full bg-white shadow-lg ring-4 ring-white/80" />
+          <div>
+            <h1 className="text-2xl font-extrabold">{d?.einstellungen.netzwerkName ?? config.name}</h1>
+            <p className="opacity-90">{config.untertitel}</p>
+          </div>
         </div>
         <div className="space-y-3 p-4">
           <p>Sie haben einen auffälligen, entlaufenen oder herrenlosen Hund gesehen? Melden Sie ihn hier – erfahrene Helfer in Ihrer Region werden informiert.</p>
