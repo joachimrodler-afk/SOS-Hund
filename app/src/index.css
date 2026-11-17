@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/* Farben: Blau als ruhige Grundfarbe, Signalrot für SOS */
+@theme {
+  --color-himmel-50: #f2f8fe;
+  --color-himmel-100: #e3f0fc;
+  --color-himmel-200: #c4e0f8;
+  --color-himmel-300: #92c6f1;
+  --color-himmel-500: #3d8fe0;
+  --color-himmel-600: #1e6fd9;
+  --color-himmel-700: #1857ad;
+  --color-himmel-900: #0f2a52;
+  --color-sos-rot: #d7262b;
+  --color-sos-rot-dunkel: #b01d22;
+  --color-sonne: #f7c843;
+  --color-sonne-hell: #fdf0c4;
+  --color-tinte: #0e1b2e;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+  /* iPhone/iPad: kein „Nachfedern“ über den Seitenrand – sonst wandern Kopf- und Fußleiste mit */
+  overscroll-behavior-y: none;
+}
+
+body {
+  @apply bg-himmel-50 text-tinte antialiased dark:bg-[#0a1424] dark:text-slate-100;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+/* Fußleiste fest am unteren Rand (eigene Ebene, damit Safari sie beim Scrollen nicht mitzieht) */
+.fussleiste {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Kopfzeile */
+.wolken {
+  background:
+    radial-gradient(ellipse 160px 50px at 85% 15%, rgb(255 255 255 / 0.14), transparent 70%),
+    linear-gradient(160deg, var(--color-himmel-700), var(--color-himmel-900));
+}
+
+/* In der Ebene „components“, damit Hilfsklassen (bg-…, ring-…) sie überschreiben können */
+@layer components {
+.karte {
+  @apply rounded-2xl bg-white shadow-sm ring-1 ring-himmel-200/70 dark:bg-slate-900 dark:ring-slate-700;
+}
+
+.eingabe {
+  @apply w-full rounded-xl border border-himmel-200 bg-white px-3 py-3 text-base text-tinte outline-none
+    focus:border-himmel-600 focus:ring-2 focus:ring-himmel-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100;
+  min-height: 48px;
+}
+
+.label {
+  @apply mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300;
+}
+}
+
+.md h2 { @apply mb-2 mt-4 text-lg font-bold first:mt-0; }
+.md h3 { @apply mb-1 mt-3 font-bold; }
+.md h4 { @apply mt-2 font-semibold; }
+.md p { @apply mb-2; }
+.md ul { @apply mb-2 list-disc space-y-1 pl-5; }
+.md a { @apply text-himmel-700 underline dark:text-himmel-300; }
+.md .md-tabelle { @apply mb-3 overflow-x-auto rounded-xl border border-himmel-200 dark:border-slate-700; }
+.md table { @apply w-full border-collapse text-sm; }
+.md th { @apply bg-himmel-100 px-3 py-2 text-left font-bold dark:bg-slate-800; }
+.md td { @apply border-t border-himmel-100 px-3 py-2 dark:border-slate-700; }
+.md th:not(:first-child), .md td:not(:first-child) { @apply text-right tabular-nums; }
+.md td:first-child { @apply font-semibold; }
+
+@media print {
+  .nicht-drucken { display: none !important; }
+  body { background: white; color: black; }
+  .karte { box-shadow: none; border: 1px solid #ccc; }
+}
+
+.sicher-unten { padding-bottom: env(safe-area-inset-bottom); }
+.sicher-oben { padding-top: env(safe-area-inset-top); }
+
+/* Leaflet-Karte: Bedienelemente im Dunkelmodus lesbar halten */
+.leaflet-container { font: inherit; border-radius: 1rem; z-index: 0; }
+.dark .leaflet-tile { filter: brightness(0.75) contrast(1.1); }

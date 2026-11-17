@@ -1,0 +1,51 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+const version = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+
+// Relative Pfade: Die App funktioniert dadurch unter jeder Adresse (z. B. GitHub Pages /<repo>/).
+const base = './';
+
+export default defineConfig({
+  base,
+  define: { __APP_VERSION__: JSON.stringify(version) },
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'autoUpdate',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,jpg,svg,woff2}'],
+      },
+      manifest: {
+        name: 'SOS Hund – Netzwerk zur Sicherung auffälliger Hunde',
+        short_name: 'SOS Hund',
+        description: 'Anfragen zur Sicherung auffälliger Hunde – regional, schnell, mit Push-Nachricht.',
+        lang: 'de',
+        theme_color: '#0f2a52',
+        background_color: '#eaf4fd',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '.',
+        scope: '.',
+        icons: [
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+    }),
+  ],
+  // Das Backend (apps-script/Code.gs) wird im Demo-Modus als Text geladen und im Browser ausgeführt
+  server: { fs: { allow: ['..'] } },
+  test: {
+    environment: 'node',
+  },
+});
