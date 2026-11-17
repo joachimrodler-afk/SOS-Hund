@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { NurAngemeldet } from '../components/Anmelden';
 import { AnfrageZeile } from '../components/Anfrage';
 import { Icon } from '../components/Icon';
-import { Fehler, Laden, Leer, Seite, useLaden } from '../components/ui';
+import { Fehler, Laden, Leer, Seite, useLaden, Zeile } from '../components/ui';
 import { api, erinnere, merke } from '../lib/api';
 import { klassen } from '../lib/helfer';
-import { istLeitung, type AnfrageKurz } from '../lib/model';
+import { istLeitung, type AnfrageKurz, type StartDaten } from '../lib/model';
 import { useSitzung } from '../lib/sitzung';
 
 const Karte = lazy(() => import('../components/Karte'));
@@ -31,12 +31,20 @@ function Inhalt() {
     }
   }, [filter, s.token]);
 
+  const start = useLaden(() => (s.rolle === 'admin' ? api<StartDaten>('start') : Promise.resolve(null)), [s.token]);
+  const ungelesen = start.daten?.nachrichten ?? 0;
   const liste = (daten ?? []).filter((a) => !nurMeine || a.meine);
   const pruefen = liste.filter((a) => a.status === 'ungeprueft');
   const rest = liste.filter((a) => a.status !== 'ungeprueft');
 
   return (
     <div className="space-y-3">
+      {s.rolle === 'admin' && (
+        <div className="karte overflow-hidden">
+          <Zeile zu="/nachrichten" icon="sprechblase" titel="Nachrichten" text={ungelesen ? `${ungelesen} ungelesen von Regionalleitern` : 'Nachrichten von Regionalleitern lesen und beantworten'}
+            rechts={ungelesen ? <span className="rounded-full bg-sos-rot px-2.5 py-0.5 text-xs font-bold text-white">{ungelesen}</span> : undefined} />
+        </div>
+      )}
       <div className="flex gap-2">
         <div className="grid flex-1 grid-cols-3 gap-1 rounded-xl bg-himmel-100 p-1 dark:bg-slate-800">
           {([['aktiv', 'Laufend'], ['erledigt', 'Erledigt'], ['alle', 'Alle']] as [Filter, string][]).map(([k, n]) => (

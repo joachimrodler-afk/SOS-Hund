@@ -15,7 +15,7 @@
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
 
-const KEY = 'sos.demo.v3';
+const KEY = 'sos.demo.v4';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -61,7 +61,7 @@ function speichern() {
 }
 
 function laden() {
-  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); } catch { /* alte Demo-Daten */ }
+  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -198,6 +198,14 @@ function beispieldaten() {
   ok(aufruf('anfrage_uebernehmen', { id: a4 }, mia));
   ok(aufruf('anfrage_status', { id: a4, status: 'gesichert', notiz: 'Beide Hunde ruhig gesichert' }, mia));
   ok(aufruf('anfrage_status', { id: a4, status: 'abgeschlossen', notiz: 'Im Tierheim Riem abgegeben' }, mia));
+
+  // Nachrichten zwischen Regionalleitern und Admin
+  ok(aufruf('nachricht_an_admins', { titel: 'Transportbox gesucht', text: 'Unsere große Box ist kaputt. Kann das Netzwerk eine neue anschaffen?' }, rita));
+  const adminT = login('Demo Admin', '123456');
+  ok(aufruf('nachrichten_verlauf', { leiterId: ok<{ id: string }>(aufruf('ich', {}, rita)).id }, adminT));
+  ok(aufruf('nachricht_antworten', { leiterId: ok<{ id: string }>(aufruf('ich', {}, rita)).id, text: 'Ja, bitte schick mir zwei Angebote, dann entscheiden wir.' }, adminT));
+  const hanna = login('Hanna Hansen', '700000');
+  ok(aufruf('nachricht_an_admins', { titel: 'Zweite Regionalleitung für Hamburg?', text: 'Die Region wächst, ich würde gern Kai als Vertretung vorschlagen.' }, hanna));
 
   // Offene Registrierung zum Ausprobieren
   const code = ok<{ code: string }>(aufruf('einladung_erstellen', { rolle: 'mitglied', regionen: [muc], notiz: 'Hundetrainerin Sandra' }, rita)).code;

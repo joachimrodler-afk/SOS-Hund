@@ -51,6 +51,8 @@ var BLAETTER = {
   Verlauf: ['id', 'anfrageId', 'zeit', 'mitgliedId', 'name', 'aktion', 'status', 'notiz'],
   Protokoll: ['zeit', 'mitgliedId', 'name', 'aktion', 'anfrageId'],
   PushAbos: ['fcmToken', 'mitgliedId', 'einstellungen', 'erstellt'],
+  // Nachrichten zwischen Regionalleitern und Admins – ein Verlauf je Regionalleiter (leiterId)
+  Nachrichten: ['id', 'leiterId', 'vonId', 'vonName', 'betreff', 'text', 'erstellt', 'gelesenAdmin', 'gelesenLeiter'],
 };
 
 // =====================================================================
@@ -136,6 +138,9 @@ var AKTIONEN = {
   mitteilung_senden: { recht: 'leitung', fn: mitteilungSenden_ },
   admins_kontakt: { recht: 'leitung', fn: adminsKontakt_ },
   nachricht_an_admins: { recht: 'leitung', fn: nachrichtAnAdmins_ },
+  nachrichten_uebersicht: { recht: 'admin', fn: nachrichtenUebersicht_ },
+  nachrichten_verlauf: { recht: 'leitung', fn: nachrichtenVerlauf_ },
+  nachricht_antworten: { recht: 'admin', fn: nachrichtAntworten_ },
   protokoll: { recht: 'admin', fn: protokollListe_ },
   // Push
   push_abo: { recht: 'angemeldet', fn: pushAbo_ },
@@ -809,6 +814,7 @@ function start_(d, s) {
   if (istLeitung_(s)) {
     o.ungeprueft = anfragen.filter(function (a) { return a.status === 'ungeprueft'; }).length;
     o.registrierungen = registrierungenListe_(d, s).length;
+    o.nachrichten = nachrichtenUngelesen_(s);
   }
   var m = mitgliedNachId_(s.mitgliedId);
   o.verfuegbar = m ? String(m.verfuegbar) !== 'false' : true;
@@ -1462,15 +1468,20 @@ function adminsKontakt_(d, s) {
 
 /** Nachricht eines Regionalleiters an alle Admins: Push und – falls hinterlegt – E-Mail */
 function nachrichtAnAdmins_(d, s) {
-  var betreff = String(d.titel || '').trim().slice(0, 80);
+  if (s.rolle !== 'regionalleiter') throw fehler_('Nur für Regionalleiter', 403);
   var text = String(d.text || '').trim().slice(0, 2000);
-  if (!betreff) throw fehler_('Betreff fehlt', 400);
+  var betreff = String(d.titel || '').trim().slice(0, 80) || text.slice(0, 60);
+  if (!betreff) throw fehler_('Nachricht fehlt', 400);
   var ich = mitgliedNachId_(s.mitgliedId) || {};
   var regionen = s.regionen.map(regionName_).filter(Boolean).join(', ');
   var absender = s.name + (regionen ? ' (' + regionen + ')' : '');
   var admins = zeilen_('Mitglieder').filter(function (m) { return m.rolle === 'admin' && String(m.aktiv) === 'true' && m.id !== s.mitgliedId; });
   if (!admins.length) throw fehler_('Kein Admin gefunden', 404);
-  var push = pushSenden_('verwaltung', 'Nachricht von ' + s.name + ': ' + betreff, text, '#/verwaltung', null, admins.map(function (m) { return m.id; }));
+  mitSperre_(function () {
+    zeileAnhaengen_('Nachrichten', ['n' + Utilities.getUuid().slice(0, 10), s.mitgliedId, s.mitgliedId, txt_(s.name), txt_(d.titel ? betreff : ''),
+      txt_(text), txt_(jetzt_()), 'false', 'true']);
+  });
+  var push = pushSenden_('verwaltung', 'Nachricht von ' + s.name + ': ' + betreff, text, '#/nachrichten?leiter=' + s.mitgliedId, null, admins.map(function (m) { return m.id; }));
   var mails = 0;
   var netz = einstellungenLesen_().netzwerkName;
   admins.forEach(function (m) {
@@ -1489,6 +1500,86 @@ function nachrichtAnAdmins_(d, s) {
   });
   protokoll_(s, 'Nachricht an Admins: ' + betreff, '');
   return { push: push, mails: mails, admins: admins.length };
+}
+
+function nachrichtOeffentlich_(n) {
+  return {
+    id: n.id, leiterId: n.leiterId, vonId: n.vonId, vonName: zelle_(n.vonName), betreff: zelle_(n.betreff), text: zelle_(n.text),
+    erstellt: zelle_(n.erstellt), vonAdmin: n.vonId !== n.leiterId,
+  };
+}
+
+/** Admin: alle Verläufe mit Regionalleitern, neueste zuerst, mit Zahl der ungelesenen Nachrichten */
+function nachrichtenUebersicht_(d, s) {
+  var verlaeufe = {};
+  zeilen_('Nachrichten').forEach(function (n) {
+    var v = verlaeufe[n.leiterId] || (verlaeufe[n.leiterId] = { leiterId: n.leiterId, ungelesen: 0, anzahl: 0, letzte: null });
+    v.anzahl++;
+    if (n.vonId === n.leiterId && String(n.gelesenAdmin) !== 'true') v.ungelesen++;
+    if (!v.letzte || zelle_(n.erstellt) > v.letzte.erstellt) v.letzte = nachrichtOeffentlich_(n);
+  });
+  return Object.keys(verlaeufe).map(function (id) {
+    var v = verlaeufe[id];
+    var m = mitgliedNachId_(id) || {};
+    v.name = m.vorname ? (m.vorname + ' ' + m.nachname).trim() : (v.letzte && !v.letzte.vonAdmin ? v.letzte.vonName : 'unbekannt');
+    v.regionen = liste_(m.regionen).map(regionName_).filter(Boolean);
+    v.telefon = zelle_(m.telefon); v.email = m.email || '';
+    return v;
+  }).sort(function (a, b) { return a.letzte.erstellt < b.letzte.erstellt ? 1 : -1; });
+}
+
+/** Verlauf mit einem Regionalleiter. Admin: d.leiterId; Regionalleiter: immer der eigene. Markiert als gelesen. */
+function nachrichtenVerlauf_(d, s) {
+  var admin = s.rolle === 'admin';
+  if (!admin && s.rolle !== 'regionalleiter') throw fehler_('Keine Berechtigung', 403);
+  var leiterId = admin ? String(d.leiterId || '') : s.mitgliedId;
+  if (!leiterId) throw fehler_('Regionalleiter fehlt', 400);
+  var spalte = admin ? 'gelesenAdmin' : 'gelesenLeiter';
+  var liste = zeilen_('Nachrichten').filter(function (n) { return n.leiterId === leiterId; });
+  var ungelesen = liste.filter(function (n) { return String(n[spalte]) !== 'true'; });
+  if (ungelesen.length) {
+    mitSperre_(function () {
+      ungelesen.forEach(function (n) { aktualisiereZeile_('Nachrichten', 'id', n.id, function (z) { z[spalte] = 'true'; return z; }); });
+    });
+  }
+  var m = mitgliedNachId_(leiterId) || {};
+  return {
+    leiterId: leiterId,
+    name: m.vorname ? (m.vorname + ' ' + m.nachname).trim() : '',
+    regionen: liste_(m.regionen).map(regionName_).filter(Boolean),
+    telefon: zelle_(m.telefon), email: m.email || '',
+    nachrichten: liste.map(nachrichtOeffentlich_).sort(function (a, b) { return a.erstellt < b.erstellt ? -1 : 1; }),
+  };
+}
+
+/** Admin antwortet einem Regionalleiter: wird gespeichert, Push und E-Mail an den Regionalleiter */
+function nachrichtAntworten_(d, s) {
+  var text = String(d.text || '').trim().slice(0, 2000);
+  if (!text) throw fehler_('Nachricht fehlt', 400);
+  var leiter = mitgliedNachId_(String(d.leiterId || ''));
+  if (!leiter || leiter.rolle !== 'regionalleiter') throw fehler_('Regionalleiter nicht gefunden', 404);
+  mitSperre_(function () {
+    zeileAnhaengen_('Nachrichten', ['n' + Utilities.getUuid().slice(0, 10), leiter.id, s.mitgliedId, txt_(s.name), '', txt_(text), txt_(jetzt_()), 'true', 'false']);
+  });
+  var push = pushSenden_('verwaltung', 'Antwort von ' + s.name, text, '#/verwaltung/admin-kontakt', null, [leiter.id]);
+  var mail = 0;
+  if (leiter.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(leiter.email)) {
+    try {
+      var netz = einstellungenLesen_().netzwerkName;
+      MailApp.sendEmail({ to: leiter.email, subject: netz + ': Antwort von ' + s.name, body: text + '\n\n(Antwort aus der App ' + netz + ' – dort unter Verwaltung → Admin kontaktieren.)' });
+      mail = 1;
+    } catch (e) { console.warn('Mail an Regionalleiter fehlgeschlagen: ' + e); }
+  }
+  return { push: push, mails: mail };
+}
+
+/** Ungelesene Nachrichten für die Startseite */
+function nachrichtenUngelesen_(s) {
+  if (s.rolle !== 'admin' && s.rolle !== 'regionalleiter') return 0;
+  return zeilen_('Nachrichten').filter(function (n) {
+    if (s.rolle === 'admin') return n.vonId === n.leiterId && String(n.gelesenAdmin) !== 'true';
+    return n.leiterId === s.mitgliedId && n.vonId !== n.leiterId && String(n.gelesenLeiter) !== 'true';
+  }).length;
 }
 
 /**

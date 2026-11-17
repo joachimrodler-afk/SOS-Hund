@@ -70,6 +70,22 @@ assert.equal(kontakt[0].id, admin.mitgliedId);
 nein(aufruf('nachricht_an_admins', { titel: '' }, rita.token), 'Betreff Pflicht');
 const nAdmin = ok(aufruf('nachricht_an_admins', { titel: 'Neue Helfer', text: 'Bitte Rückruf' }, rita.token));
 assert.equal(nAdmin.admins, 1);
+// Nachrichten-Verlauf
+assert.equal(ok(aufruf('start', {}, admin.token)).nachrichten, 1, 'Admin hat 1 ungelesene Nachricht');
+const ueb = ok(aufruf('nachrichten_uebersicht', {}, admin.token));
+assert.equal(ueb.length, 1); assert.equal(ueb[0].leiterId, rita.mitgliedId); assert.equal(ueb[0].ungelesen, 1);
+nein(aufruf('nachrichten_uebersicht', {}, rita.token), 'Übersicht nur für Admins');
+const v1 = ok(aufruf('nachrichten_verlauf', { leiterId: rita.mitgliedId }, admin.token));
+assert.equal(v1.nachrichten.length, 1); assert.equal(v1.nachrichten[0].betreff, 'Neue Helfer');
+assert.equal(ok(aufruf('start', {}, admin.token)).nachrichten, 0, 'nach dem Lesen 0');
+ok(aufruf('nachricht_antworten', { leiterId: rita.mitgliedId, text: 'Rufe morgen an' }, admin.token));
+nein(aufruf('nachricht_antworten', { leiterId: rita.mitgliedId, text: 'x' }, rita.token), 'Antworten nur Admin');
+assert.equal(ok(aufruf('start', {}, rita.token)).nachrichten, 1, 'Regionalleiter sieht ungelesene Antwort');
+const v2 = ok(aufruf('nachrichten_verlauf', { leiterId: 'egal' }, rita.token));
+assert.equal(v2.leiterId, rita.mitgliedId, 'Regionalleiter nur eigener Verlauf');
+assert.equal(v2.nachrichten.length, 2); assert.ok(v2.nachrichten[1].vonAdmin);
+ok(aufruf('nachricht_an_admins', { text: 'Danke!' }, rita.token));
+assert.equal(ok(aufruf('nachrichten_verlauf', {}, rita.token)).nachrichten.length, 3, 'Antwort ohne Betreff');
 
 
 // Regionalleiterin lädt Mitglieder und eine Behörde ein – nur für eigene Regionen

@@ -185,6 +185,8 @@ export interface StartDaten {
   meine?: number;
   ungeprueft?: number;
   registrierungen?: number;
+  /** ungelesene Nachrichten zwischen Regionalleitern und Admins */
+  nachrichten?: number;
   verfuegbar?: boolean;
 }
 
