@@ -35,7 +35,7 @@ Alle Rechte werden **im Backend** geprüft, nicht nur in der App ausgeblendet.
 
 ## Demo
 
-Solange in `app/src/config.ts` keine `apiUrl` eingetragen ist, läuft die App im **Demo-Modus**. Dabei läuft das echte Backend (`apps-script/Code.gs`) direkt im Browser, und die Daten liegen nur auf dem jeweiligen Gerät. Demo und echte App verhalten sich deshalb gleich.
+Ohne `apiUrl` in `app/src/config.ts` – oder lokal mit `VITE_DEMO=1 npm run dev` – läuft die App im **Demo-Modus**. Dabei läuft das echte Backend (`apps-script/Code.gs`) direkt im Browser, und die Daten liegen nur auf dem jeweiligen Gerät. Demo und echte App verhalten sich deshalb gleich.
 
 | Name | PIN | Rolle |
 |---|---|---|
@@ -116,7 +116,8 @@ Unter **Projekteinstellungen → Script-Attribute** anlegen:
 
 ## Offene Punkte
 
-- [ ] `apiUrl`, `firebase`, `impressumUrl`, `datenschutzUrl` in `app/src/config.ts`
+- [x] `apiUrl` in `app/src/config.ts` (Apps-Script-Projekt „SOS Hund – Backend“, Tabelle „SOS Hund – Daten“ in Drive unter Projects/SOS-Hund)
+- [ ] `firebase`, `impressumUrl`, `datenschutzUrl` in `app/src/config.ts`
 - [ ] Datenschutzerklärung (Auftragsverarbeitung Google, Rechtsgrundlage, Löschfristen) rechtlich prüfen lassen
 - [ ] Fotos zu Anfragen (in einem nicht öffentlichen Drive-Ordner) – noch nicht umgesetzt
 

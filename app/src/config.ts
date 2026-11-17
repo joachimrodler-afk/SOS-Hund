@@ -18,7 +18,7 @@ export const config = {
    * Leer lassen = Demo-Modus: Das Backend läuft im Browser, Daten nur auf diesem Gerät.
    */
   // Für lokale Tests mit Beispieldaten: VITE_DEMO=1 npm run dev
-  apiUrl: import.meta.env.VITE_DEMO ? '' : '',
+  apiUrl: import.meta.env.VITE_DEMO ? '' : 'https://script.google.com/macros/s/AKfycbyAEbS96wgHmidLB0jMAeOYB1Msu_Oq1I-ZJTUb-WcHnRD1WRtG1thspHTjITgGeoqjcQ/exec',
 
   /** Karten-Startpunkt, wenn keine Anfrage Koordinaten hat (Mitte Bayern) */
   karte: { lat: 48.3, lon: 11.7, zoom: 9 },
