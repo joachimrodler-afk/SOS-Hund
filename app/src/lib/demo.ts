@@ -12,6 +12,7 @@
  *   Mia Helfer       333333   Mitglied LK München + LK Freising
  *   Vera Veterinär   444444   Veterinäramt LK München
  */
+import { sicherSchreiben } from './api';
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
 
@@ -48,16 +49,12 @@ let zustand: Zustand = {};
 let dateien: Record<string, { name: string; mime: string; data: string; ordner: string; papierkorb?: boolean }> = {};
 
 function speichern() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(zustand));
-  } catch {
-    /* Speicher voll – Demo läuft trotzdem weiter */
+  // Fotos zuerst opfern: Sind Fotos und Daten zusammen zu groß, bleiben die Daten (und die Anmeldung) erhalten
+  if (!sicherSchreiben(KEY, JSON.stringify(zustand))) {
+    try { localStorage.removeItem(KEY_DATEIEN); } catch { /* ignorieren */ }
+    sicherSchreiben(KEY, JSON.stringify(zustand));
   }
-  try {
-    localStorage.setItem(KEY_DATEIEN, JSON.stringify(dateien));
-  } catch {
-    /* Fotos zu groß für den Gerätespeicher – sie bleiben bis zum Neuladen erhalten */
-  }
+  sicherSchreiben(KEY_DATEIEN, JSON.stringify(dateien));
 }
 
 function laden() {

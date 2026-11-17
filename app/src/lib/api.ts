@@ -14,7 +14,27 @@ export class ApiFehler extends Error {
   }
 }
 
+/** Anmeldung im Arbeitsspeicher – falls der Gerätespeicher voll oder gesperrt ist, gilt sie bis zum Neuladen */
+let sitzungImSpeicher: Sitzung | null = null;
+
+/** Gerätespeicher voll? Dann zuerst den Zwischenspeicher (Offline-Kopien) leeren und noch einmal versuchen */
+export function sicherSchreiben(key: string, wert: string) {
+  try {
+    localStorage.setItem(key, wert);
+    return true;
+  } catch {
+    try {
+      Object.keys(localStorage).filter((k) => k.startsWith(SPEICHER + 'cache.')).forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem(key, wert);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 export function ladeSitzung(): Sitzung | null {
+  if (sitzungImSpeicher) return sitzungImSpeicher;
   try {
     const s = JSON.parse(localStorage.getItem(SITZUNG_KEY) || 'null') as Sitzung | null;
     // Anmeldungen laufen nicht ab – nur Abmelden, neuer PIN oder Deaktivieren beenden sie
@@ -26,11 +46,11 @@ export function ladeSitzung(): Sitzung | null {
 }
 
 export function speichereSitzung(s: Sitzung | null) {
-  try {
-    if (s) localStorage.setItem(SITZUNG_KEY, JSON.stringify(s));
-    else localStorage.removeItem(SITZUNG_KEY);
-  } catch {
-    /* ignorieren */
+  sitzungImSpeicher = null;
+  if (s) {
+    if (!sicherSchreiben(SITZUNG_KEY, JSON.stringify(s))) sitzungImSpeicher = s;
+  } else {
+    try { localStorage.removeItem(SITZUNG_KEY); } catch { /* ignorieren */ }
   }
   window.dispatchEvent(new Event('sos-sitzung'));
 }
