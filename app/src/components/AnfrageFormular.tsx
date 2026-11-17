@@ -10,7 +10,7 @@ export const LEERE_ANFRAGE: AnfrageEingabe = {
   vorfall: '',
   hund: { rasse: '', groesse: '', farbe: '', alter: '', geschlecht: '', merkmale: '', name: '', anzahl: 1 },
   adresse: { halter: '', halterTelefon: '', halterEmail: '', strasse: '', plz: '', ort: '', hinweis: '', lat: null, lon: null },
-  auftraggeber: { name: '', organisation: '', telefon: '', email: '', erreichbar: '', istHalter: false },
+  auftraggeber: { name: '', organisation: '', telefon: '', email: '', erreichbar: '', strasse: '', plz: '', ort: '', istHalter: false },
 };
 
 const GROESSEN = ['klein', 'mittel', 'groß', 'sehr groß'];
@@ -53,7 +53,7 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
 
   const hund = (k: keyof AnfrageEingabe['hund'], v: string | number) => setD({ ...d, hund: { ...d.hund, [k]: v } });
   // Halterfeld → Kontaktfeld, solange „Ich bin selbst der Hundehalter“ gesetzt ist
-  const UEBERTRAG = { halter: 'name', halterTelefon: 'telefon', halterEmail: 'email' } as const;
+  const UEBERTRAG = { halter: 'name', halterTelefon: 'telefon', halterEmail: 'email', strasse: 'strasse', plz: 'plz', ort: 'ort' } as const;
   // Ändert sich die Adresse, passen die alten Koordinaten nicht mehr – das Backend sucht sie neu
   const adr = (k: keyof AnfrageEingabe['adresse'], v: string | number | null) => {
     const ziel = UEBERTRAG[k as keyof typeof UEBERTRAG];
@@ -69,11 +69,11 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
     setD({
       ...d,
       auftraggeber: an
-        ? { ...d.auftraggeber, istHalter: true, name: d.adresse.halter, telefon: d.adresse.halterTelefon, email: d.adresse.halterEmail }
+        ? { ...d.auftraggeber, istHalter: true, name: d.adresse.halter, telefon: d.adresse.halterTelefon, email: d.adresse.halterEmail,
+            strasse: d.adresse.strasse, plz: d.adresse.plz, ort: d.adresse.ort }
         : { ...d.auftraggeber, istHalter: false },
     });
   const istHalter = !!d.auftraggeber.istHalter;
-  const halterAdresse = [d.adresse.strasse, `${d.adresse.plz} ${d.adresse.ort}`.trim()].filter(Boolean).join(', ');
 
   function standort() {
     if (!navigator.geolocation) return setFehler('Dieses Gerät kann den Standort nicht bestimmen.');
@@ -180,7 +180,7 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
             <b>{oeffentlich ? 'Ich bin selbst der Hundehalter' : 'Auftraggeber ist der Hundehalter'}</b>
             <span className="block text-slate-500">
               {istHalter
-                ? `Name, Telefon, E-Mail und Adresse aus „Wo ist der Hund?“ übernommen${halterAdresse ? `: ${halterAdresse}` : ''}`
+                ? 'Name, Telefon, E-Mail und Adresse wurden aus „Wo ist der Hund?“ übernommen.'
                 : 'Dann werden Name, Telefon, E-Mail und Adresse aus „Wo ist der Hund?“ übernommen.'}
             </span>
           </span>
@@ -190,6 +190,11 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
           <Feld label="Organisation / Behörde"><input className="eingabe" maxLength={80} value={d.auftraggeber.organisation} onChange={(e) => ag('organisation', e.target.value)} autoComplete="organization" /></Feld>
           <Feld label="Telefon *"><input className="eingabe" required type="tel" maxLength={40} value={d.auftraggeber.telefon} disabled={istHalter} onChange={(e) => ag('telefon', e.target.value)} autoComplete="tel" /></Feld>
           <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} disabled={istHalter} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
+        </div>
+        <Feld label="Straße und Hausnummer"><input className="eingabe" maxLength={100} value={d.auftraggeber.strasse ?? ''} disabled={istHalter} onChange={(e) => ag('strasse', e.target.value)} autoComplete="street-address" /></Feld>
+        <div className="grid grid-cols-[7rem_1fr] gap-3">
+          <Feld label="PLZ"><input className="eingabe" inputMode="numeric" pattern="\d{5}" maxLength={5} value={d.auftraggeber.plz ?? ''} disabled={istHalter} onChange={(e) => ag('plz', e.target.value.replace(/\D/g, ''))} autoComplete="postal-code" /></Feld>
+          <Feld label="Ort"><input className="eingabe" maxLength={60} value={d.auftraggeber.ort ?? ''} disabled={istHalter} onChange={(e) => ag('ort', e.target.value)} autoComplete="address-level2" /></Feld>
         </div>
         <Feld label="Erreichbar"><input className="eingabe" maxLength={120} value={d.auftraggeber.erreichbar} onChange={(e) => ag('erreichbar', e.target.value)} placeholder="z. B. jederzeit, Mo–Fr 8–16 Uhr" /></Feld>
       </Abschnitt>

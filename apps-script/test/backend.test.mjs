@@ -199,6 +199,10 @@ assert.equal(mhDet.details.auftraggeber.name, 'Hans Halter', 'Name nach unten ü
 assert.equal(mhDet.details.auftraggeber.telefon, '0170 5', 'Telefon nach unten übernommen');
 assert.equal(mhDet.details.auftraggeber.email, 'hans@example.org', 'E-Mail nach unten übernommen');
 assert.equal(mhDet.details.adresse.halterTelefon, '0170 5');
+assert.equal(mhDet.details.auftraggeber.strasse, 'Lindenweg 3', 'Straße nach unten übernommen');
+assert.equal(mhDet.details.auftraggeber.plz, '85737', 'PLZ nach unten übernommen');
+assert.equal(mhDet.details.auftraggeber.ort, 'Ismaning', 'Ort nach unten übernommen');
+nein(aufruf('melden', { ...anfrage, auftraggeber: { name: 'X', telefon: '1', plz: '12' }, datenschutz: true }), 'PLZ Auftraggeber prüfen');
 ok(aufruf('anfrage_pruefen', { id: mhId, freigeben: false }, rita.token));
 
 // ---------------------------------------------------------------- Meldung verwerfen

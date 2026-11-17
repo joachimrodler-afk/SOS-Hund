@@ -835,6 +835,7 @@ function anfrageDaten_(d) {
     auftraggeber: {
       name: txtFeld_(ag.name, 80), organisation: txtFeld_(ag.organisation, 80), telefon: txtFeld_(ag.telefon, 40),
       email: txtFeld_(ag.email, 80), erreichbar: txtFeld_(ag.erreichbar, 120),
+      strasse: txtFeld_(ag.strasse, 100), plz: txtFeld_(ag.plz, 5), ort: txtFeld_(ag.ort, 60),
       istHalter: ag.istHalter === true,
     },
   };
@@ -844,7 +845,9 @@ function anfrageDaten_(d) {
     var ag2 = o.auftraggeber, ad2 = o.adresse;
     ag2.name = ad2.halter || ag2.name; ag2.telefon = ad2.halterTelefon || ag2.telefon; ag2.email = ad2.halterEmail || ag2.email;
     ad2.halter = ag2.name; ad2.halterTelefon = ag2.telefon; ad2.halterEmail = ag2.email;
+    ag2.strasse = ad2.strasse; ag2.plz = ad2.plz; ag2.ort = ad2.ort;
   }
+  if (o.auftraggeber.plz && !/^\d{5}$/.test(o.auftraggeber.plz)) throw fehler_('Bitte eine gültige Postleitzahl des Auftraggebers angeben', 400);
   if (!o.beschreibung) throw fehler_('Bitte kurz beschreiben, was los ist', 400);
   if (!/^\d{5}$/.test(o.adresse.plz)) throw fehler_('Bitte eine gültige Postleitzahl angeben', 400);
   if (!o.adresse.ort) throw fehler_('Bitte den Ort angeben', 400);
@@ -1166,7 +1169,8 @@ function export_(d, s) {
       quelle: k.quelle, beschreibung: k.beschreibung, hund: k.hund, alter: (dt.hund || {}).alter || '', ort: k.ort,
       strasse: (dt.adresse || {}).strasse || '',
       halter: [(dt.adresse || {}).halter, (dt.adresse || {}).halterTelefon, (dt.adresse || {}).halterEmail].filter(Boolean).join(', '),
-      auftraggeber: [(dt.auftraggeber || {}).name, (dt.auftraggeber || {}).organisation, (dt.auftraggeber || {}).istHalter ? 'Hundehalter' : ''].filter(Boolean).join(', '),
+      auftraggeber: [(dt.auftraggeber || {}).name, (dt.auftraggeber || {}).organisation, (dt.auftraggeber || {}).strasse,
+        [(dt.auftraggeber || {}).plz, (dt.auftraggeber || {}).ort].filter(Boolean).join(' '), (dt.auftraggeber || {}).istHalter ? 'Hundehalter' : ''].filter(Boolean).join(', '),
       uebernommen: k.uebernommenName, helfer: k.helfer.map(function (h) { return h.name; }).join(', '),
       abgeschlossen: zelle_(a.abgeschlossenAm),
     };

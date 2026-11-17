@@ -203,6 +203,7 @@ function Inhalt({ id }: { id: string }) {
         <dl>
           <Zeile label="Name">{ag.name}</Zeile>
           <Zeile label="Organisation">{ag.organisation}</Zeile>
+          <Zeile label="Adresse">{[ag.strasse, `${ag.plz ?? ''} ${ag.ort ?? ''}`.trim()].filter(Boolean).join(', ')}</Zeile>
           <Zeile label="Telefon">{ag.telefon && <TelLink nummer={ag.telefon} />}</Zeile>
           <Zeile label="E-Mail">{ag.email && <a className="underline" href={`mailto:${ag.email}?subject=${encodeURIComponent(a.nummer)}`}>{ag.email}</a>}</Zeile>
           <Zeile label="Erreichbar">{ag.erreichbar}</Zeile>
