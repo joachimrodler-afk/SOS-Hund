@@ -15,7 +15,7 @@
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
 
-const KEY = 'sos.demo.v1';
+const KEY = 'sos.demo.v2';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -61,6 +61,7 @@ function speichern() {
 }
 
 function laden() {
+  try { localStorage.removeItem('sos.demo.v1'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -92,7 +93,7 @@ function vorMinuten(id: string, min: number, feld = 'erstellt') {
   });
 }
 
-/** Beispieldaten: drei Regionen, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
+/** Beispieldaten: 23 Regionen, 20 weitere Regionalleiter, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
 function beispieldaten() {
   const { aufruf, intern } = backend!;
   intern.setup();
@@ -113,6 +114,34 @@ function beispieldaten() {
   neu('Mia', 'Helfer', 'mitglied', [muc, fs], '333333', { telefon: '0172 3333333' });
   neu('Erik', 'Ebersberger', 'mitglied', [ebe], '555555', { telefon: '0173 5555555' });
   neu('Vera', 'Veterinär', 'behoerde', [muc], '444444', { organisation: 'Veterinäramt LK München', telefon: '089 6221-0', email: 'veterinaeramt@example.org' });
+
+  // 20 Regionalleiter in ganz Deutschland, je mit eigener Region (für die Deutschlandkarte)
+  const DEMO_REGIONEN: [string, string, string, string][] = [
+    ['Hamburg', '20*, 21*, 22*', 'Hanna', 'Hansen'],
+    ['Schleswig-Holstein', '23*, 24*, 25*', 'Kai', 'Kröger'],
+    ['Vorpommern', '17*, 18*', 'Ole', 'Ostermann'],
+    ['Berlin', '10*, 12*, 13*, 14*', 'Bettina', 'Brandt'],
+    ['Bremen', '26*, 27*, 28*', 'Jan', 'Janssen'],
+    ['Hannover', '30*, 31*', 'Nina', 'Niemeyer'],
+    ['Magdeburg', '38*, 39*', 'Maik', 'Möller'],
+    ['Dresden', '01*, 02*', 'Doreen', 'Dietrich'],
+    ['Leipzig', '04*, 06*', 'Lars', 'Lehmann'],
+    ['Münsterland', '48*', 'Greta', 'Hölscher'],
+    ['Ruhrgebiet', '44*, 45*', 'Dennis', 'Kowalski'],
+    ['Köln', '50*, 51*', 'Sabine', 'Krämer'],
+    ['Kassel', '34*', 'Tobias', 'Kessler'],
+    ['Erfurt', '99*', 'Ines', 'Engel'],
+    ['Frankfurt', '60*, 61*, 63*', 'Felix', 'Fischer'],
+    ['Saarland', '66*', 'Sophie', 'Schmitt'],
+    ['Stuttgart', '70*, 71*', 'Stefan', 'Schwab'],
+    ['Freiburg', '79*', 'Franziska', 'Faller'],
+    ['Nürnberg', '90*, 91*', 'Norbert', 'Neubauer'],
+    ['Regensburg', '93*', 'Rosa', 'Reindl'],
+  ];
+  DEMO_REGIONEN.forEach(([region, plz, vorname, nachname], i) => {
+    const id = ok<{ id: string }>(aufruf('region_speichern', { name: region, plz }, t)).id;
+    neu(vorname, nachname, 'regionalleiter', [id], String(700000 + i), { telefon: `0151 ${String(4000000 + i * 1111)}` });
+  });
 
   const login = (name: string, pin: string) => ok<{ token: string }>(aufruf('login', { name, pin })).token;
   const vera = login('Vera Veterinär', '444444');
