@@ -27,13 +27,14 @@ export default function Info() {
             <Icon name="notfall" className="h-7 w-7" />
             <h2 className="text-lg font-bold">Notfall</h2>
           </div>
-          <div className="md p-4">
+          <div className="p-4">
             <p>Bei Gefahr für Menschen sofort den Notruf wählen.</p>
+            {/* außerhalb von .md, sonst färbt die Link-Regel die Schrift der Knöpfe blau */}
             <div className="my-3 grid grid-cols-2 gap-2">
-              <a href="tel:112" className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-sos-rot text-xl font-extrabold text-white no-underline"><Icon name="telefon" /> 112</a>
-              <a href="tel:110" className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-himmel-700 text-xl font-extrabold text-white no-underline"><Icon name="telefon" /> 110</a>
+              <a href="tel:112" className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-sos-rot text-xl font-extrabold text-white"><Icon name="telefon" /> 112</a>
+              <a href="tel:110" className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-himmel-700 text-xl font-extrabold text-white"><Icon name="telefon" /> 110</a>
             </div>
-            {daten?.notfall && <div dangerouslySetInnerHTML={{ __html: markdown(daten.notfall) }} />}
+            {daten?.notfall && <div className="md" dangerouslySetInnerHTML={{ __html: markdown(daten.notfall) }} />}
           </div>
         </div>
         <Link to="/melden" className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-sos-rot text-lg font-bold text-white shadow">
