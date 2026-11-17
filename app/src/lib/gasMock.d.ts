@@ -8,6 +8,7 @@ export function gasDienste(o: {
   geocoder?: (text: string) => { lat: number; lon: number } | null;
   mails?: unknown[];
   pushes?: unknown[];
+  dateien?: Record<string, { name: string; mime: string; data: string; ordner: string; papierkorb?: boolean }>;
 }): Record<string, unknown>;
 export function backendLaden(
   code: string,

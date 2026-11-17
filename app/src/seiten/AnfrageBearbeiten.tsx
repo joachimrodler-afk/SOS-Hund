@@ -32,7 +32,7 @@ function Inhalt({ id }: { id: string }) {
   const aktuell = region ?? a.region;
 
   return (
-    <AnfrageFormular start={start} knopf="Änderungen speichern"
+    <AnfrageFormular start={start} knopf="Änderungen speichern" mitFotos={false}
       zusatz={a.rechte.leiten && (
         <div className="karte p-4">
           <Feld label="Region" hilfe="Wird sonst automatisch über die PLZ bestimmt. Bei Änderung einer offenen Anfrage wird die neue Region benachrichtigt.">

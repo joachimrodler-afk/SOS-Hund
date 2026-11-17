@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { NurAngemeldet } from '../components/Anmelden';
 import { DringlichkeitMarke, StatusMarke, TelLink } from '../components/Anfrage';
+import { AnfrageFotos } from '../components/Fotos';
 import { Icon } from '../components/Icon';
 import { Fehler, Hinweis, Knopf, Laden, Seite, useLaden } from '../components/ui';
 import { api } from '../lib/api';
@@ -175,6 +176,8 @@ function Inhalt({ id }: { id: string }) {
           </div>
         )}
       </section>
+
+      <AnfrageFotos id={a.id} anzahl={a.fotos ?? 0} />
 
       {/* Hund & Vorfall */}
       <section className="karte p-4">

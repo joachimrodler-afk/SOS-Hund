@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { FOTO_MAX, verkleinern, type Foto } from '../lib/bilder';
 import { klassen } from '../lib/helfer';
 import type { AnfrageEingabe, Dringlichkeit } from '../lib/model';
 import { Feld, Hinweis, Knopf } from './ui';
@@ -31,19 +32,74 @@ function Abschnitt({ nr, titel, children }: { nr: number; titel: string; childre
 export interface FormularErgebnis extends AnfrageEingabe {
   datenschutz?: boolean;
   website?: string;
+  fotos?: { mime: string; data: string }[];
+}
+
+/** Fotos aufnehmen oder auswählen – werden im Browser verkleinert */
+function FotoAuswahl({ fotos, setFotos, fehler }: { fotos: Foto[]; setFotos: (f: Foto[]) => void; fehler: (t: string) => void }) {
+  const kamera = useRef<HTMLInputElement>(null);
+  const galerie = useRef<HTMLInputElement>(null);
+  const [laedt, setLaedt] = useState(false);
+  const voll = fotos.length >= FOTO_MAX;
+
+  async function dazu(liste: FileList | null) {
+    if (!liste?.length) return;
+    setLaedt(true);
+    const neu: Foto[] = [];
+    for (const datei of Array.from(liste).slice(0, FOTO_MAX - fotos.length)) {
+      try { neu.push(await verkleinern(datei)); } catch (e) { fehler((e as Error).message); }
+    }
+    if (liste.length > FOTO_MAX - fotos.length) fehler(`Höchstens ${FOTO_MAX} Fotos – die übrigen wurden nicht übernommen.`);
+    setFotos([...fotos, ...neu]);
+    setLaedt(false);
+    if (kamera.current) kamera.current.value = '';
+    if (galerie.current) galerie.current.value = '';
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="label">Fotos <span className="font-normal text-slate-500">(optional, bis zu {FOTO_MAX})</span></p>
+      {fotos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {fotos.map((f, i) => (
+            <div key={i} className="relative aspect-square overflow-hidden rounded-xl ring-1 ring-himmel-200 dark:ring-slate-600">
+              <img src={f.vorschau} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+              <button type="button" onClick={() => setFotos(fotos.filter((_, k) => k !== i))} aria-label={`Foto ${i + 1} entfernen`}
+                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white">
+                <Icon name="x" className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <Knopf type="button" art="sekundaer" disabled={voll} laedt={laedt} onClick={() => kamera.current?.click()}>
+          <Icon name="kamera" className="h-5 w-5" /> Foto machen
+        </Knopf>
+        <Knopf type="button" art="sekundaer" disabled={voll || laedt} onClick={() => galerie.current?.click()}>
+          <Icon name="hochladen" className="h-5 w-5" /> Foto hochladen
+        </Knopf>
+      </div>
+      <input ref={kamera} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => void dazu(e.target.files)} />
+      <input ref={galerie} type="file" accept="image/*" multiple className="hidden" onChange={(e) => void dazu(e.target.files)} />
+    </div>
+  );
 }
 
 /**
  * Formular für eine SOS-Anfrage. Wird für öffentliche Meldungen, neue Anfragen von Mitgliedern
  * und Behörden sowie zum Bearbeiten benutzt.
  */
-export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zusatz }: {
+export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zusatz, mitFotos = true }: {
   start: AnfrageEingabe;
   oeffentlich?: boolean;
   knopf: string;
   senden: (d: FormularErgebnis) => Promise<void>;
   zusatz?: ReactNode;
+  /** beim Bearbeiten aus: vorhandene Fotos bleiben, neue kommen nicht dazu */
+  mitFotos?: boolean;
 }) {
+  const [fotos, setFotos] = useState<Foto[]>([]);
   const [d, setD] = useState<AnfrageEingabe>(start);
   const [datenschutz, setDatenschutz] = useState(false);
   const [website, setWebsite] = useState('');
@@ -91,7 +147,7 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
     if (oeffentlich && !datenschutz) return setFehler('Bitte der Datenschutzerklärung zustimmen.');
     setLaedt(true);
     try {
-      await senden({ ...d, datenschutz, website });
+      await senden({ ...d, datenschutz, website, ...(mitFotos ? { fotos: fotos.map((f) => ({ mime: f.mime, data: f.data })) } : {}) });
     } catch (err) {
       setFehler((err as Error).message);
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -146,6 +202,7 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
         </div>
         <Feld label="Name des Hundes (falls bekannt)"><input className="eingabe" maxLength={40} value={d.hund.name} onChange={(e) => hund('name', e.target.value)} /></Feld>
         <Feld label="Besondere Merkmale"><input className="eingabe" maxLength={300} value={d.hund.merkmale} onChange={(e) => hund('merkmale', e.target.value)} placeholder="Halsband, Geschirr, Verletzungen, Maulkorb …" /></Feld>
+        {mitFotos && <FotoAuswahl fotos={fotos} setFotos={setFotos} fehler={setFehler} />}
       </Abschnitt>
 
       <Abschnitt nr={3} titel="Wo ist der Hund? (Adresse Hundehalter)">

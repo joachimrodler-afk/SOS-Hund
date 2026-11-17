@@ -16,6 +16,7 @@ import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
 
 const KEY = 'sos.demo.v1';
+const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
   { name: 'Demo Admin', pin: '123456', rolle: 'Admin' },
@@ -44,12 +45,18 @@ function geocoder(text: string) {
 type Zustand = Record<string, unknown[][]>;
 let backend: ReturnType<typeof backendLaden> | null = null;
 let zustand: Zustand = {};
+let dateien: Record<string, { name: string; mime: string; data: string; ordner: string; papierkorb?: boolean }> = {};
 
 function speichern() {
   try {
     localStorage.setItem(KEY, JSON.stringify(zustand));
   } catch {
     /* Speicher voll – Demo läuft trotzdem weiter */
+  }
+  try {
+    localStorage.setItem(KEY_DATEIEN, JSON.stringify(dateien));
+  } catch {
+    /* Fotos zu groß für den Gerätespeicher – sie bleiben bis zum Neuladen erhalten */
   }
 }
 
@@ -61,9 +68,14 @@ function laden() {
     gespeichert = null;
   }
   zustand = gespeichert ?? {};
+  try {
+    dateien = (gespeichert && JSON.parse(localStorage.getItem(KEY_DATEIEN) || '{}')) || {};
+  } catch {
+    dateien = {};
+  }
   const tabelle = neueTabelle(zustand);
   const props: Record<string, string> = { SHEET_ID: 'demo', ERSTER_ADMIN: 'Demo;Admin;123456' };
-  backend = backendLaden(code, gasDienste({ tabelle, props, geocoder }));
+  backend = backendLaden(code, gasDienste({ tabelle, props, geocoder, dateien }));
   if (!gespeichert) beispieldaten();
   speichern();
 }
@@ -175,5 +187,6 @@ export async function demoAufruf<T>(aktion: string, daten: Record<string, unknow
 
 export function demoZuruecksetzen() {
   localStorage.removeItem(KEY);
+  localStorage.removeItem(KEY_DATEIEN);
   backend = null;
 }

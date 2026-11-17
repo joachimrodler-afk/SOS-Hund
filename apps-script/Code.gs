@@ -18,6 +18,7 @@
  *   FCM_SERVICE_ACCOUNT   JSON des Firebase-Service-Accounts (optional, für Push)
  *   APP_URL               Adresse der App (für Links in Push-Nachrichten und E-Mails)
  *   SUPER_ADMIN           Mitglieds-ID des Super-Admins (kann von anderen Admins nicht geändert werden)
+ *   FOTO_ORDNER_ID        wird beim ersten Foto automatisch angelegt (Drive-Ordner „SOS Hund – Fotos“)
  */
 
 var TZ = 'Europe/Berlin';
@@ -108,6 +109,7 @@ var AKTIONEN = {
   // Anfragen
   anfragen_liste: { recht: 'angemeldet', fn: anfragenListe_ },
   anfrage_detail: { recht: 'angemeldet', fn: anfrageDetail_ },
+  anfrage_fotos: { recht: 'angemeldet', fn: anfrageFotos_ },
   anfrage_anlegen: { recht: 'angemeldet', fn: anfrageAnlegen_ },
   anfrage_bearbeiten: { recht: 'angemeldet', fn: anfrageBearbeiten_ },
   anfrage_uebernehmen: { recht: 'helfer', fn: anfrageUebernehmen_ },
@@ -891,6 +893,7 @@ function anfrageKurz_(a, s) {
     helfer: helferListe_(a), eskaliert: !!a.eskaliertAm, eskaliertBeiMir: !!s && liste_(a.eskaliertAn).some(function (r) { return s.regionen.indexOf(r) >= 0; }),
     meine: !!s && (a.uebernommenVon === s.mitgliedId || a.erstelltVon === s.mitgliedId || helferListe_(a).some(function (h) { return h.id === s.mitgliedId; })),
     anonymisiert: String(a.anonymisiert) === 'true',
+    fotos: (d.fotos || []).length,
   };
 }
 
@@ -954,11 +957,13 @@ function protokoll_(s, aktion, anfrageId) {
 }
 
 /** Neue Anfrage speichern (gemeinsam für Mitglieder, Behörden und öffentliche Meldungen) */
-function anfrageSpeichern_(daten, dringlichkeit, quelle, status, s) {
+function anfrageSpeichern_(daten, dringlichkeit, quelle, status, s, fotos) {
   daten.adresse = geokodieren_(daten.adresse);
   var region = regionFuerPlz_(daten.adresse.plz);
   var id = 'a' + Utilities.getUuid().slice(0, 8);
   var nummer;
+  // Fotos vor der Sperre hochladen (Drive ist langsam), Dateiname = interne ID
+  daten.fotos = fotosSpeichern_(fotosPruefen_(fotos), id);
   mitSperre_(function () {
     nummer = naechsteNummer_();
     zeileAnhaengen_('Anfragen', [id, nummer, region, status, dringlichkeit, quelle, txt_(jetzt_()), s ? s.mitgliedId : '',
@@ -974,7 +979,7 @@ function dringlichkeit_(v) { return DRINGLICHKEIT.indexOf(v) >= 0 ? v : 'normal'
 function anfrageAnlegen_(d, s) {
   var daten = anfrageDaten_(d);
   if (s.rolle === 'behoerde' && !daten.auftraggeber.organisation) daten.auftraggeber.organisation = s.organisation;
-  var erg = anfrageSpeichern_(daten, dringlichkeit_(d.dringlichkeit), s.rolle === 'behoerde' ? 'behoerde' : 'mitglied', 'offen', s);
+  var erg = anfrageSpeichern_(daten, dringlichkeit_(d.dringlichkeit), s.rolle === 'behoerde' ? 'behoerde' : 'mitglied', 'offen', s, d.fotos);
   erg.benachrichtigt = sosPush_(anfrageHolen_(erg.id), 'neu', s.mitgliedId);
   if (!erg.region) pushAnLeitung_([], 'Anfrage ohne Region', erg.nummer + ': PLZ ' + daten.adresse.plz + ' gehört zu keiner Region.', '#/anfragen/' + erg.id);
   return erg;
@@ -989,7 +994,7 @@ function melden_(d) {
   if (n > 30) throw fehler_('Gerade gehen sehr viele Meldungen ein – bitte später erneut versuchen oder 112 anrufen', 429);
   cache.put('meldungen', String(n + 1), 3600);
   var daten = anfrageDaten_(d);
-  var erg = anfrageSpeichern_(daten, dringlichkeit_(d.dringlichkeit), 'oeffentlich', 'ungeprueft', null);
+  var erg = anfrageSpeichern_(daten, dringlichkeit_(d.dringlichkeit), 'oeffentlich', 'ungeprueft', null, d.fotos);
   pushAnLeitung_(erg.region ? [erg.region] : [], 'Neue Meldung prüfen', erg.nummer + ' · ' + daten.adresse.ort + ': ' + daten.beschreibung, '#/anfragen/' + erg.id);
   return { nummer: erg.nummer };
 }
@@ -1000,6 +1005,7 @@ function anfrageBearbeiten_(d, s) {
   if (!leitung && !(a.erstelltVon === s.mitgliedId && ['ungeprueft', 'offen'].indexOf(a.status) >= 0)) throw fehler_('Keine Berechtigung', 403);
   var daten = anfrageDaten_(d);
   var alt = details_(a);
+  daten.fotos = alt.fotos || []; // Fotos bleiben beim Bearbeiten erhalten
   if (alt.adresse && alt.adresse.plz === daten.adresse.plz && alt.adresse.strasse === daten.adresse.strasse && !daten.adresse.lat) {
     daten.adresse.lat = alt.adresse.lat; daten.adresse.lon = alt.adresse.lon;
   }
@@ -1198,6 +1204,69 @@ function auftraggeberInformieren_(a, s) {
 }
 
 // =====================================================================
+// Fotos (Google Drive, Ordner „SOS Hund – Fotos“, nicht öffentlich)
+// =====================================================================
+
+var FOTO_MAX = 5;
+var FOTO_MAX_BYTES = 3 * 1024 * 1024;
+var FOTO_TYPEN = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+/** Prüft die mitgeschickten Fotos ({mime, data: Base64}) und wandelt sie in Bytes */
+function fotosPruefen_(fotos) {
+  if (!fotos || !fotos.length) return [];
+  if (fotos.length > FOTO_MAX) throw fehler_('Bitte höchstens ' + FOTO_MAX + ' Fotos anhängen', 400);
+  return fotos.map(function (f) {
+    var mime = String((f && f.mime) || '');
+    if (!FOTO_TYPEN[mime]) throw fehler_('Fotos bitte als JPG, PNG oder WebP', 400);
+    var bytes;
+    try { bytes = Utilities.base64Decode(String(f.data || '')); } catch (e) { throw fehler_('Ein Foto ist beschädigt', 400); }
+    if (!bytes.length || bytes.length > FOTO_MAX_BYTES) throw fehler_('Ein Foto ist zu groß (höchstens 3 MB)', 400);
+    return { mime: mime, bytes: bytes };
+  });
+}
+
+function fotoOrdner_() {
+  var id = prop_('FOTO_ORDNER_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { console.warn('Foto-Ordner nicht gefunden, lege neu an'); }
+  }
+  var ordner = DriveApp.createFolder('SOS Hund – Fotos');
+  PropertiesService.getScriptProperties().setProperty('FOTO_ORDNER_ID', ordner.getId());
+  return ordner;
+}
+
+function fotosSpeichern_(geprueft, name) {
+  if (!geprueft.length) return [];
+  var ordner = fotoOrdner_();
+  return geprueft.map(function (f, i) {
+    var blob = Utilities.newBlob(f.bytes, f.mime, name + '-' + (i + 1) + '.' + FOTO_TYPEN[f.mime]);
+    return ordner.createFile(blob).getId();
+  });
+}
+
+/** Fotos einer Anfrage – nur für alle, die die Anfrage sehen dürfen */
+function anfrageFotos_(d, s) {
+  var a = anfrageHolen_(d.id);
+  if (!darfSehen_(a, s)) throw fehler_('Keine Berechtigung für diese Anfrage', 403);
+  var ids = details_(a).fotos || [];
+  if (ids.length) protokoll_(s, 'Fotos angesehen', a.id);
+  return ids.map(function (fid) {
+    try {
+      var b = DriveApp.getFileById(fid).getBlob();
+      return { id: fid, mime: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) };
+    } catch (e) {
+      return { id: fid, fehlt: true };
+    }
+  });
+}
+
+function fotosLoeschen_(ids) {
+  (ids || []).forEach(function (fid) {
+    try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) { console.warn('Foto ' + fid + ' nicht gelöscht: ' + e); }
+  });
+}
+
+// =====================================================================
 // Eskalation & Anonymisierung (zeitgesteuert)
 // =====================================================================
 
@@ -1246,6 +1315,8 @@ function anonymisieren_() {
         d.hund = { rasse: (d.hund || {}).rasse || '', groesse: (d.hund || {}).groesse || '', alter: (d.hund || {}).alter || '' };
         d.adresse = { plz: (d.adresse || {}).plz || '', ort: (d.adresse || {}).ort || '' };
         d.auftraggeber = { organisation: (d.auftraggeber || {}).organisation || '' };
+        fotosLoeschen_(d.fotos);
+        d.fotos = [];
         r.json = JSON.stringify(d);
         r.anonymisiert = 'true';
         return r;

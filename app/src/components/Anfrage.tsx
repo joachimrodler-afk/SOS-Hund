@@ -53,6 +53,7 @@ export function AnfrageZeile({ a }: { a: AnfrageKurz }) {
       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
         <span className="inline-flex items-center gap-1"><Icon name="ort" className="h-4 w-4" />{a.ort}</span>
         {a.hund && <span className="inline-flex items-center gap-1"><Icon name="pfote" className="h-4 w-4" />{a.hund}</span>}
+        {a.fotos > 0 && <span className="inline-flex items-center gap-1"><Icon name="kamera" className="h-4 w-4" />{a.fotos}</span>}
         <span className="inline-flex items-center gap-1"><Icon name="uhr" className="h-4 w-4" />{vorZeit(a.erstellt)}</span>
       </p>
       {a.uebernommenName && (

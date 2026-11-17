@@ -15,7 +15,8 @@ const tabelle = neueTabelle();
 const props = { SHEET_ID: 'x', ERSTER_ADMIN: 'Ada;Admin;654321', FCM_SERVICE_ACCOUNT: JSON.stringify({ project_id: 'p', client_email: 'a@b', private_key: 'k' }) };
 const mails = [];
 const pushes = [];
-const dienste = gasDienste({ tabelle, props, mails, pushes, geocoder: (t) => (t.includes('85737') ? { lat: 48.22, lon: 11.68 } : null) });
+const dateien = {};
+const dienste = gasDienste({ tabelle, props, mails, pushes, dateien, geocoder: (t) => (t.includes('85737') ? { lat: 48.22, lon: 11.68 } : null) });
 dienste.Utilities.computeRsaSha256Signature = () => [1, 2, 3];
 const { aufruf, intern } = backendLaden(code, dienste);
 
@@ -204,6 +205,30 @@ assert.equal(mhDet.details.auftraggeber.plz, '85737', 'PLZ nach unten übernomme
 assert.equal(mhDet.details.auftraggeber.ort, 'Ismaning', 'Ort nach unten übernommen');
 nein(aufruf('melden', { ...anfrage, auftraggeber: { name: 'X', telefon: '1', plz: '12' }, datenschutz: true }), 'PLZ Auftraggeber prüfen');
 ok(aufruf('anfrage_pruefen', { id: mhId, freigeben: false }, rita.token));
+
+// ---------------------------------------------------------------- Fotos
+const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex').toString('base64');
+nein(aufruf('melden', { ...anfrage, fotos: [{ mime: 'text/plain', data: PNG }], datenschutz: true }), 'nur Bilder');
+nein(aufruf('melden', { ...anfrage, fotos: Array(6).fill({ mime: 'image/png', data: PNG }), datenschutz: true }), 'höchstens 5');
+nein(aufruf('melden', { ...anfrage, fotos: [{ mime: 'image/jpeg', data: '###' }], datenschutz: true }), 'kaputtes Base64');
+const mf = ok(aufruf('melden', { ...anfrage, beschreibung: 'Hund mit Foto', fotos: [{ mime: 'image/png', data: PNG }, { mime: 'image/jpeg', data: PNG }], datenschutz: true }));
+const mfId = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === mf.nummer).id;
+assert.equal(ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.id === mfId).fotos, 2, 'Fotoanzahl in der Liste');
+assert.ok(props.FOTO_ORDNER_ID, 'Foto-Ordner angelegt');
+assert.equal(Object.keys(dateien).length, 2);
+const fotos = ok(aufruf('anfrage_fotos', { id: mfId }, rita.token));
+assert.equal(fotos.length, 2);
+assert.equal(fotos[0].data, PNG, 'Foto kommt unverändert zurück');
+assert.equal(fotos[1].mime, 'image/jpeg');
+nein(aufruf('anfrage_fotos', { id: mfId }, max.token), 'ungeprüft: Mitglied sieht keine Fotos');
+nein(aufruf('anfrage_fotos', { id: mfId }), 'Fotos nicht öffentlich');
+ok(aufruf('anfrage_bearbeiten', { ...anfrage, id: mfId }, rita.token));
+assert.equal(ok(aufruf('anfrage_fotos', { id: mfId }, rita.token)).length, 2, 'Fotos bleiben beim Bearbeiten');
+ok(aufruf('anfrage_pruefen', { id: mfId, freigeben: false }, rita.token));
+intern.aktualisiereZeile_('Anfragen', 'id', mfId, (r) => { r.abgeschlossenAm = new Date(Date.now() - 400 * 86400000).toISOString(); return r; });
+intern.anonymisieren_();
+assert.equal(ok(aufruf('anfrage_fotos', { id: mfId }, rita.token)).length, 0, 'Fotos nach Anonymisierung weg');
+assert.ok(Object.values(dateien).every((f) => f.papierkorb), 'Fotos im Papierkorb');
 
 // ---------------------------------------------------------------- Meldung verwerfen
 const m2 = ok(aufruf('melden', { ...anfrage, beschreibung: 'Test', auftraggeber: { name: 'X', telefon: '1' }, datenschutz: true }));

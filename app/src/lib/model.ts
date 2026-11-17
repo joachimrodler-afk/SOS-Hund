@@ -116,6 +116,7 @@ export interface AnfrageKurz {
   eskaliertBeiMir: boolean;
   meine: boolean;
   anonymisiert: boolean;
+  fotos: number;
 }
 
 export interface VerlaufEintrag {

@@ -67,6 +67,21 @@ function base64(bytes) {
   return s;
 }
 
+function base64Bytes(text) {
+  const t = String(text).replace(/[^A-Za-z0-9+/=]/g, '');
+  if (t.length % 4 !== 0) throw new Error('Ungültiges Base64');
+  const out = [];
+  for (let i = 0; i < t.length; i += 4) {
+    const n = [0, 1, 2, 3].map((k) => (t[i + k] === '=' ? 0 : B64.indexOf(t[i + k])));
+    if (n.some((x) => x < 0)) throw new Error('Ungültiges Base64');
+    const v = (n[0] << 18) | (n[1] << 12) | (n[2] << 6) | n[3];
+    out.push((v >> 16) & 255);
+    if (t[i + 2] !== '=') out.push((v >> 8) & 255);
+    if (t[i + 3] !== '=') out.push(v & 255);
+  }
+  return out.map((b) => (b > 127 ? b - 256 : b));
+}
+
 function uuid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -118,10 +133,31 @@ export function neueTabelle(zustand = {}) {
 // ------------------------------------------------------------------ Dienste
 /**
  * Erzeugt die globalen Apps-Script-Objekte.
- * optionen: { tabelle, props, geocoder(text) -> {lat,lon}|null, mails: [], pushes: [] }
+ * optionen: { tabelle, props, geocoder(text) -> {lat,lon}|null, mails: [], pushes: [], dateien: {} }
+ * dateien = Ablage der „Drive“-Dateien: { [id]: { name, mime, data (Base64), ordner, papierkorb } }
  */
-export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes = [] }) {
+export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes = [], dateien = {} }) {
   const cache = {};
+  const blob = (bytes, mime, name) => ({
+    getBytes: () => bytes, getContentType: () => mime, getName: () => name,
+  });
+  const datei = (id) => {
+    const f = dateien[id];
+    if (!f || f.papierkorb) throw new Error('Datei nicht gefunden: ' + id);
+    return {
+      getId: () => id,
+      getBlob: () => blob(base64Bytes(f.data), f.mime, f.name),
+      setTrashed: (v) => { f.papierkorb = !!v; },
+    };
+  };
+  const ordner = (id) => ({
+    getId: () => id,
+    createFile: (b) => {
+      const fid = 'f' + uuid().slice(0, 12);
+      dateien[fid] = { name: b.getName(), mime: b.getContentType(), data: base64(b.getBytes().map((x) => (x + 256) % 256)), ordner: id };
+      return datei(fid);
+    },
+  });
   return {
     console,
     SpreadsheetApp: { openById: () => tabelle, flush: () => {} },
@@ -143,6 +179,8 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
       getUuid: uuid,
       computeDigest: (_alg, s) => sha256(s).map((b) => (b > 127 ? b - 256 : b)),
       base64Encode: (b) => base64(b.map((x) => (x + 256) % 256)),
+      base64Decode: (t) => base64Bytes(t),
+      newBlob: (bytes, mime, name) => blob(bytes, mime, name),
       base64EncodeWebSafe: (s) => base64([...new TextEncoder().encode(String(s))]).replace(/\+/g, '-').replace(/\//g, '_'),
       DigestAlgorithm: { SHA_256: 'sha256' },
       Charset: { UTF_8: 'utf8' },
@@ -161,6 +199,11 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
       },
     },
     MailApp: { sendEmail: (m) => mails.push(m) },
+    DriveApp: {
+      createFolder: () => ordner('ordner-' + uuid().slice(0, 8)),
+      getFolderById: (id) => ordner(id),
+      getFileById: (id) => datei(id),
+    },
     UrlFetchApp: { fetch: (url, o) => { pushes.push({ url, o }); return { getResponseCode: () => 200, getContentText: () => '{"access_token":"x"}' }; } },
   };
 }
