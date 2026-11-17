@@ -32,6 +32,10 @@ jobs:
       - run: npm test
       - run: node ../apps-script/test/backend.test.mjs
       - run: npm run build
+      # Demo mit Beispieldaten unter …/demo/ (das Backend läuft dort im Browser)
+      - run: npx vite build --outDir dist/demo --emptyOutDir
+        env:
+          VITE_DEMO: '1'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/dist

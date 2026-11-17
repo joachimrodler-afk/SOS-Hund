@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { readFileSync } from 'node:fs';
 
 const version = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+// Demo-Build (VITE_DEMO=1): läuft unter …/demo/ mit eigenem Namen
+const demo = !!process.env.VITE_DEMO;
 
 // Relative Pfade: Die App funktioniert dadurch unter jeder Adresse (z. B. GitHub Pages /<repo>/).
 const base = './';
@@ -24,8 +26,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,jpg,svg,woff2}'],
       },
       manifest: {
-        name: 'SOS Hund – Netzwerk zur Sicherung auffälliger Hunde',
-        short_name: 'SOS Hund',
+        name: demo ? 'SOS Hund – Demo' : 'SOS Hund – Netzwerk zur Sicherung auffälliger Hunde',
+        short_name: demo ? 'SOS Demo' : 'SOS Hund',
         description: 'Anfragen zur Sicherung auffälliger Hunde – regional, schnell, mit Push-Nachricht.',
         lang: 'de',
         theme_color: '#0f2a52',

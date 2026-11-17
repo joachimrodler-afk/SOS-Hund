@@ -42,6 +42,12 @@ export const config = {
 } as const;
 
 export const istDemo = !config.apiUrl;
+/**
+ * Präfix für den Gerätespeicher. Echte App und Demo (…/demo/) liegen unter derselben Adresse
+ * und teilen sich deshalb den localStorage – getrennte Präfixe verhindern, dass sich
+ * Anmeldungen oder zwischengespeicherte Daten vermischen.
+ */
+export const SPEICHER = istDemo ? 'sosdemo.' : 'sos.';
 export const pushKonfiguriert = !!(config.firebase.apiKey && config.firebase.vapidKey);
 export function istGesetzt(v: string) {
   return !!v && !v.startsWith('TODO');

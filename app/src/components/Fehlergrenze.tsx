@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { SPEICHER } from '../config';
 
 /** Einmal neu laden, wenn nach einem Update alte Programmteile fehlen (sonst weißer Bildschirm). */
 export function einmalNeuLaden(): boolean {
@@ -17,7 +18,7 @@ export function einmalNeuLaden(): boolean {
 /** Zwischengespeicherte Daten und Programmdateien löschen, dann neu laden (Anmeldung bleibt erhalten). */
 async function aufraeumenUndNeuLaden() {
   try {
-    Object.keys(localStorage).filter((k) => k.startsWith('sos.cache.')).forEach((k) => localStorage.removeItem(k));
+    Object.keys(localStorage).filter((k) => k.startsWith(SPEICHER + 'cache.')).forEach((k) => localStorage.removeItem(k));
   } catch {
     /* ignorieren */
   }

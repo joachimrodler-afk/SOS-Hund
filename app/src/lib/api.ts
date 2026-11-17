@@ -3,10 +3,10 @@
  * Ohne konfigurierte apiUrl läuft die App im Demo-Modus (siehe demo.ts):
  * dann läuft dasselbe Backend (Code.gs) im Browser.
  */
-import { config, istDemo } from '../config';
+import { config, istDemo, SPEICHER } from '../config';
 import type { Sitzung } from './model';
 
-const SITZUNG_KEY = 'sos.sitzung';
+const SITZUNG_KEY = SPEICHER + 'sitzung';
 
 export class ApiFehler extends Error {
   constructor(msg: string, public status = 500) {
@@ -74,14 +74,14 @@ async function netz<T>(aktion: string, daten: Record<string, unknown>, token?: s
 /** Einfacher Speicher für „letzter bekannter Wert“ (Offline-Anzeige) */
 export function merke<T>(key: string, wert: T) {
   try {
-    localStorage.setItem('sos.cache.' + key, JSON.stringify(wert));
+    localStorage.setItem(SPEICHER + 'cache.' + key, JSON.stringify(wert));
   } catch {
     /* ignorieren */
   }
 }
 export function erinnere<T>(key: string): T | null {
   try {
-    return JSON.parse(localStorage.getItem('sos.cache.' + key) || 'null');
+    return JSON.parse(localStorage.getItem(SPEICHER + 'cache.' + key) || 'null');
   } catch {
     return null;
   }

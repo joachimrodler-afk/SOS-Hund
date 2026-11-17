@@ -3,11 +3,11 @@
  * Das Firebase-SDK wird erst geladen, wenn ein Mitglied Push einschaltet.
  * Auf dem iPhone funktioniert Push nur, wenn die App auf dem Home-Bildschirm installiert ist (ab iOS 16.4).
  */
-import { config, pushKonfiguriert } from '../config';
+import { config, pushKonfiguriert, SPEICHER } from '../config';
 import { api } from './api';
 import type { PushEinstellungen } from './model';
 
-const KEY = 'sos.push';
+const KEY = SPEICHER + 'push';
 
 export const STANDARD_PUSH: PushEinstellungen = { sos: true, uebernahme: true, status: true, mitteilungen: true, verwaltung: true };
 

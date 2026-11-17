@@ -15,7 +15,8 @@ cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
 // App-Shell auch offline öffnen (wichtig für den Notfall-Bereich)
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
+// Die Demo unter …/demo/ hat ihren eigenen Service Worker – hier nicht abfangen
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/\/demo(\/|$)/] }));
 
 // Kartenkacheln (OpenStreetMap): einmal geladene Kacheln auch offline anzeigen
 registerRoute(({ url }) => url.hostname.endsWith('tile.openstreetmap.org'), new CacheFirst({

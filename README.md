@@ -35,7 +35,9 @@ Alle Rechte werden **im Backend** geprüft, nicht nur in der App ausgeblendet.
 
 ## Demo
 
-Ohne `apiUrl` in `app/src/config.ts` – oder lokal mit `VITE_DEMO=1 npm run dev` – läuft die App im **Demo-Modus**. Dabei läuft das echte Backend (`apps-script/Code.gs`) direkt im Browser, und die Daten liegen nur auf dem jeweiligen Gerät. Demo und echte App verhalten sich deshalb gleich.
+**Demo zum Ausprobieren und Weitergeben: https://joachimrodler-afk.github.io/SOS-Hund/demo/**
+
+Die Demo wird bei jeder Veröffentlichung zusätzlich zur echten App gebaut (`VITE_DEMO=1`). Lokal startet sie mit `VITE_DEMO=1 npm run dev`. Dabei läuft das echte Backend (`apps-script/Code.gs`) direkt im Browser, und die Daten liegen nur auf dem jeweiligen Gerät. Demo und echte App verhalten sich deshalb gleich.
 
 | Name | PIN | Rolle |
 |---|---|---|
