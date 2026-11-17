@@ -178,6 +178,12 @@ function taeglich() {
   aufraeumen_();
 }
 
+/** Einmal im Editor ausführen: erteilt die Drive-Freigabe und legt den Foto-Ordner an */
+function fotoOrdnerEinrichten() {
+  var ordner = fotoOrdner_();
+  console.log('Foto-Ordner: ' + ordner.getName() + ' (' + ordner.getId() + ')');
+}
+
 /** Alle 5 Minuten: nicht übernommene Anfragen an Nachbarregionen eskalieren */
 function alleFuenfMinuten() {
   try { eskalieren_(); } catch (e) { console.error(e); }
