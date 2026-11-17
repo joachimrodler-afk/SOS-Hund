@@ -189,11 +189,16 @@ assert.equal(wieder.status, 'offen');
 assert.equal(wieder.eskaliert, false, 'Eskalation beginnt neu');
 
 // ---------------------------------------------------------------- Melder ist Hundehalter
-const mh = ok(aufruf('melden', { ...anfrage, beschreibung: 'Mein Hund ist weggelaufen', adresse: { strasse: 'Lindenweg 3', plz: '85737', ort: 'Ismaning', halter: 'falsch' }, auftraggeber: { name: 'Hans Halter', telefon: '0170 5', istHalter: true }, datenschutz: true }));
+nein(aufruf('melden', { ...anfrage, adresse: { plz: '85737', ort: 'Ismaning' }, auftraggeber: { istHalter: true }, datenschutz: true }), 'Halter ohne Name/Telefon');
+const mh = ok(aufruf('melden', { ...anfrage, beschreibung: 'Mein Hund ist weggelaufen', adresse: { strasse: 'Lindenweg 3', plz: '85737', ort: 'Ismaning', halter: 'Hans Halter', halterTelefon: '0170 5', halterEmail: 'hans@example.org' }, auftraggeber: { name: '', telefon: '', istHalter: true }, datenschutz: true }));
 const mhId = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === mh.nummer).id;
 const mhDet = ok(aufruf('anfrage_detail', { id: mhId }, rita.token));
 assert.equal(mhDet.details.auftraggeber.istHalter, true);
 assert.equal(mhDet.details.adresse.halter, 'Hans Halter', 'Halter = Melder');
+assert.equal(mhDet.details.auftraggeber.name, 'Hans Halter', 'Name nach unten übernommen');
+assert.equal(mhDet.details.auftraggeber.telefon, '0170 5', 'Telefon nach unten übernommen');
+assert.equal(mhDet.details.auftraggeber.email, 'hans@example.org', 'E-Mail nach unten übernommen');
+assert.equal(mhDet.details.adresse.halterTelefon, '0170 5');
 ok(aufruf('anfrage_pruefen', { id: mhId, freigeben: false }, rita.token));
 
 // ---------------------------------------------------------------- Meldung verwerfen

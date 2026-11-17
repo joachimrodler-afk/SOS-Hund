@@ -9,7 +9,7 @@ export const LEERE_ANFRAGE: AnfrageEingabe = {
   beschreibung: '',
   vorfall: '',
   hund: { rasse: '', groesse: '', farbe: '', alter: '', geschlecht: '', merkmale: '', name: '', anzahl: 1 },
-  adresse: { halter: '', strasse: '', plz: '', ort: '', hinweis: '', lat: null, lon: null },
+  adresse: { halter: '', halterTelefon: '', halterEmail: '', strasse: '', plz: '', ort: '', hinweis: '', lat: null, lon: null },
   auftraggeber: { name: '', organisation: '', telefon: '', email: '', erreichbar: '', istHalter: false },
 };
 
@@ -52,14 +52,27 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
   const [ortSucht, setOrtSucht] = useState(false);
 
   const hund = (k: keyof AnfrageEingabe['hund'], v: string | number) => setD({ ...d, hund: { ...d.hund, [k]: v } });
+  // Halterfeld → Kontaktfeld, solange „Ich bin selbst der Hundehalter“ gesetzt ist
+  const UEBERTRAG = { halter: 'name', halterTelefon: 'telefon', halterEmail: 'email' } as const;
   // Ändert sich die Adresse, passen die alten Koordinaten nicht mehr – das Backend sucht sie neu
-  const adr = (k: keyof AnfrageEingabe['adresse'], v: string | number | null) =>
-    setD({ ...d, adresse: { ...d.adresse, [k]: v, ...(['strasse', 'plz', 'ort'].includes(k) ? { lat: null, lon: null } : {}) } });
-  const ag = (k: keyof AnfrageEingabe['auftraggeber'], v: string) =>
-    setD({ ...d, auftraggeber: { ...d.auftraggeber, [k]: v }, ...(k === 'name' && d.auftraggeber.istHalter ? { adresse: { ...d.adresse, halter: v } } : {}) });
-  // „Ich bin selbst der Hundehalter“: Name wird Halter, die Adresse aus Abschnitt 3 gilt für beide
+  const adr = (k: keyof AnfrageEingabe['adresse'], v: string | number | null) => {
+    const ziel = UEBERTRAG[k as keyof typeof UEBERTRAG];
+    setD({
+      ...d,
+      adresse: { ...d.adresse, [k]: v, ...(['strasse', 'plz', 'ort'].includes(k) ? { lat: null, lon: null } : {}) },
+      ...(ziel && d.auftraggeber.istHalter ? { auftraggeber: { ...d.auftraggeber, [ziel]: v } } : {}),
+    });
+  };
+  const ag = (k: keyof AnfrageEingabe['auftraggeber'], v: string) => setD({ ...d, auftraggeber: { ...d.auftraggeber, [k]: v } });
+  // „Ich bin selbst der Hundehalter“: Name, Telefon und E-Mail des Halters werden nach unten übernommen
   const setzeHalter = (an: boolean) =>
-    setD({ ...d, auftraggeber: { ...d.auftraggeber, istHalter: an }, adresse: { ...d.adresse, halter: an ? d.auftraggeber.name : '' } });
+    setD({
+      ...d,
+      auftraggeber: an
+        ? { ...d.auftraggeber, istHalter: true, name: d.adresse.halter, telefon: d.adresse.halterTelefon, email: d.adresse.halterEmail }
+        : { ...d.auftraggeber, istHalter: false },
+    });
+  const istHalter = !!d.auftraggeber.istHalter;
   const halterAdresse = [d.adresse.strasse, `${d.adresse.plz} ${d.adresse.ort}`.trim()].filter(Boolean).join(', ');
 
   function standort() {
@@ -136,11 +149,17 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
       </Abschnitt>
 
       <Abschnitt nr={3} titel="Wo ist der Hund? (Adresse Hundehalter)">
-        {!oeffentlich && (
-          <Feld label="Name Hundehalter" hilfe={d.auftraggeber.istHalter ? 'Übernommen aus den Kontaktdaten (Auftraggeber ist Hundehalter)' : undefined}>
-            <input className="eingabe" maxLength={80} value={d.adresse.halter} disabled={d.auftraggeber.istHalter} onChange={(e) => adr('halter', e.target.value)} />
+        <Feld label={istHalter ? 'Name Hundehalter *' : 'Name Hundehalter'}>
+          <input className="eingabe" maxLength={80} required={istHalter} value={d.adresse.halter} onChange={(e) => adr('halter', e.target.value)} placeholder="falls bekannt" />
+        </Feld>
+        <div className="grid grid-cols-2 gap-3">
+          <Feld label={istHalter ? 'Telefon Hundehalter *' : 'Telefon Hundehalter'}>
+            <input className="eingabe" type="tel" maxLength={40} required={istHalter} value={d.adresse.halterTelefon} onChange={(e) => adr('halterTelefon', e.target.value)} />
           </Feld>
-        )}
+          <Feld label="E-Mail Hundehalter">
+            <input className="eingabe" type="email" maxLength={80} value={d.adresse.halterEmail} onChange={(e) => adr('halterEmail', e.target.value)} />
+          </Feld>
+        </div>
         <Feld label="Straße und Hausnummer bzw. Ort"><input className="eingabe" maxLength={100} value={d.adresse.strasse} onChange={(e) => adr('strasse', e.target.value)} autoComplete="street-address" /></Feld>
         <div className="grid grid-cols-[7rem_1fr] gap-3">
           <Feld label="PLZ *"><input className="eingabe" required inputMode="numeric" pattern="\d{5}" maxLength={5} value={d.adresse.plz} onChange={(e) => adr('plz', e.target.value.replace(/\D/g, ''))} autoComplete="postal-code" /></Feld>
@@ -160,17 +179,17 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
           <span>
             <b>{oeffentlich ? 'Ich bin selbst der Hundehalter' : 'Auftraggeber ist der Hundehalter'}</b>
             <span className="block text-slate-500">
-              {d.auftraggeber.istHalter
-                ? `Adresse übernommen: ${halterAdresse || 'bitte oben unter „Wo ist der Hund?“ eintragen'}`
-                : 'Dann gilt die Adresse aus „Wo ist der Hund?“ auch als Ihre Adresse.'}
+              {istHalter
+                ? `Name, Telefon, E-Mail und Adresse aus „Wo ist der Hund?“ übernommen${halterAdresse ? `: ${halterAdresse}` : ''}`
+                : 'Dann werden Name, Telefon, E-Mail und Adresse aus „Wo ist der Hund?“ übernommen.'}
             </span>
           </span>
         </label>
         <div className="grid grid-cols-2 gap-3">
-          <Feld label="Name *"><input className="eingabe" required maxLength={80} value={d.auftraggeber.name} onChange={(e) => ag('name', e.target.value)} autoComplete="name" /></Feld>
+          <Feld label="Name *"><input className="eingabe" required maxLength={80} value={d.auftraggeber.name} disabled={istHalter} onChange={(e) => ag('name', e.target.value)} autoComplete="name" /></Feld>
           <Feld label="Organisation / Behörde"><input className="eingabe" maxLength={80} value={d.auftraggeber.organisation} onChange={(e) => ag('organisation', e.target.value)} autoComplete="organization" /></Feld>
-          <Feld label="Telefon *"><input className="eingabe" required type="tel" maxLength={40} value={d.auftraggeber.telefon} onChange={(e) => ag('telefon', e.target.value)} autoComplete="tel" /></Feld>
-          <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
+          <Feld label="Telefon *"><input className="eingabe" required type="tel" maxLength={40} value={d.auftraggeber.telefon} disabled={istHalter} onChange={(e) => ag('telefon', e.target.value)} autoComplete="tel" /></Feld>
+          <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} disabled={istHalter} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
         </div>
         <Feld label="Erreichbar"><input className="eingabe" maxLength={120} value={d.auftraggeber.erreichbar} onChange={(e) => ag('erreichbar', e.target.value)} placeholder="z. B. jederzeit, Mo–Fr 8–16 Uhr" /></Feld>
       </Abschnitt>

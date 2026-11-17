@@ -61,6 +61,8 @@ export interface Hund {
 
 export interface Adresse {
   halter: string;
+  halterTelefon: string;
+  halterEmail: string;
   strasse: string;
   plz: string;
   ort: string;
@@ -75,7 +77,7 @@ export interface Auftraggeber {
   telefon: string;
   email: string;
   erreichbar: string;
-  /** Der Melder ist selbst der Hundehalter – seine Adresse ist die Adresse aus „Wo ist der Hund?“ */
+  /** Der Melder ist selbst der Hundehalter – Name, Telefon, E-Mail und Adresse kommen aus „Wo ist der Hund?“ */
   istHalter?: boolean;
 }
 

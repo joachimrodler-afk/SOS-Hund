@@ -828,7 +828,8 @@ function anfrageDaten_(d) {
       name: txtFeld_(h.name, 40), anzahl: Math.max(1, Math.min(20, Number(h.anzahl) || 1)),
     },
     adresse: {
-      halter: txtFeld_(ad.halter, 80), strasse: txtFeld_(ad.strasse, 100), plz: txtFeld_(ad.plz, 5), ort: txtFeld_(ad.ort, 60),
+      halter: txtFeld_(ad.halter, 80), halterTelefon: txtFeld_(ad.halterTelefon, 40), halterEmail: txtFeld_(ad.halterEmail, 80),
+      strasse: txtFeld_(ad.strasse, 100), plz: txtFeld_(ad.plz, 5), ort: txtFeld_(ad.ort, 60),
       hinweis: txtFeld_(ad.hinweis, 300), lat: Number(ad.lat) || null, lon: Number(ad.lon) || null,
     },
     auftraggeber: {
@@ -837,8 +838,13 @@ function anfrageDaten_(d) {
       istHalter: ag.istHalter === true,
     },
   };
-  // Melder ist selbst der Hundehalter: Name als Halter übernehmen, die Adresse gilt für beide
-  if (o.auftraggeber.istHalter) o.adresse.halter = o.auftraggeber.name;
+  // Melder ist selbst der Hundehalter: Name, Telefon und E-Mail des Halters gelten auch als Kontakt
+  // (fehlende Angaben auf einer Seite werden von der anderen ergänzt), die Adresse gilt für beide
+  if (o.auftraggeber.istHalter) {
+    var ag2 = o.auftraggeber, ad2 = o.adresse;
+    ag2.name = ad2.halter || ag2.name; ag2.telefon = ad2.halterTelefon || ag2.telefon; ag2.email = ad2.halterEmail || ag2.email;
+    ad2.halter = ag2.name; ad2.halterTelefon = ag2.telefon; ad2.halterEmail = ag2.email;
+  }
   if (!o.beschreibung) throw fehler_('Bitte kurz beschreiben, was los ist', 400);
   if (!/^\d{5}$/.test(o.adresse.plz)) throw fehler_('Bitte eine gültige Postleitzahl angeben', 400);
   if (!o.adresse.ort) throw fehler_('Bitte den Ort angeben', 400);
@@ -1158,7 +1164,8 @@ function export_(d, s) {
     return {
       nummer: k.nummer, erstellt: k.erstellt, region: k.regionName, status: STATUS_NAME[k.status] || k.status, dringlichkeit: k.dringlichkeit,
       quelle: k.quelle, beschreibung: k.beschreibung, hund: k.hund, alter: (dt.hund || {}).alter || '', ort: k.ort,
-      strasse: (dt.adresse || {}).strasse || '', halter: (dt.adresse || {}).halter || '',
+      strasse: (dt.adresse || {}).strasse || '',
+      halter: [(dt.adresse || {}).halter, (dt.adresse || {}).halterTelefon, (dt.adresse || {}).halterEmail].filter(Boolean).join(', '),
       auftraggeber: [(dt.auftraggeber || {}).name, (dt.auftraggeber || {}).organisation, (dt.auftraggeber || {}).istHalter ? 'Hundehalter' : ''].filter(Boolean).join(', '),
       uebernommen: k.uebernommenName, helfer: k.helfer.map(function (h) { return h.name; }).join(', '),
       abgeschlossen: zelle_(a.abgeschlossenAm),

@@ -159,6 +159,8 @@ function Inhalt({ id }: { id: string }) {
         <h3 className="mb-2 flex items-center gap-2 font-bold"><Icon name="ort" className="h-5 w-5 text-sos-rot" /> Ort</h3>
         <dl>
           <Zeile label="Halter">{ad.halter}</Zeile>
+          <Zeile label="Telefon Halter">{ad.halterTelefon && <TelLink nummer={ad.halterTelefon} />}</Zeile>
+          <Zeile label="E-Mail Halter">{ad.halterEmail && <a className="underline" href={`mailto:${ad.halterEmail}`}>{ad.halterEmail}</a>}</Zeile>
           <Zeile label="Adresse">{[ad.strasse, `${ad.plz ?? ''} ${ad.ort ?? ''}`.trim()].filter(Boolean).join(', ')}</Zeile>
           <Zeile label="Hinweis">{ad.hinweis}</Zeile>
         </dl>
@@ -204,7 +206,7 @@ function Inhalt({ id }: { id: string }) {
           <Zeile label="Telefon">{ag.telefon && <TelLink nummer={ag.telefon} />}</Zeile>
           <Zeile label="E-Mail">{ag.email && <a className="underline" href={`mailto:${ag.email}?subject=${encodeURIComponent(a.nummer)}`}>{ag.email}</a>}</Zeile>
           <Zeile label="Erreichbar">{ag.erreichbar}</Zeile>
-          <Zeile label="Hundehalter">{ag.istHalter ? `ja – Adresse siehe „Ort“` : ''}</Zeile>
+          <Zeile label="Hundehalter">{ag.istHalter ? 'ja – der Auftraggeber ist selbst der Halter' : ''}</Zeile>
         </dl>
         {a.team.length > 0 && (
           <>
