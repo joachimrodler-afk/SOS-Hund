@@ -10,7 +10,7 @@ export const LEERE_ANFRAGE: AnfrageEingabe = {
   vorfall: '',
   hund: { rasse: '', groesse: '', farbe: '', alter: '', geschlecht: '', merkmale: '', name: '', anzahl: 1 },
   adresse: { halter: '', strasse: '', plz: '', ort: '', hinweis: '', lat: null, lon: null },
-  auftraggeber: { name: '', organisation: '', telefon: '', email: '', erreichbar: '' },
+  auftraggeber: { name: '', organisation: '', telefon: '', email: '', erreichbar: '', istHalter: false },
 };
 
 const GROESSEN = ['klein', 'mittel', 'groß', 'sehr groß'];
@@ -55,7 +55,12 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
   // Ändert sich die Adresse, passen die alten Koordinaten nicht mehr – das Backend sucht sie neu
   const adr = (k: keyof AnfrageEingabe['adresse'], v: string | number | null) =>
     setD({ ...d, adresse: { ...d.adresse, [k]: v, ...(['strasse', 'plz', 'ort'].includes(k) ? { lat: null, lon: null } : {}) } });
-  const ag = (k: keyof AnfrageEingabe['auftraggeber'], v: string) => setD({ ...d, auftraggeber: { ...d.auftraggeber, [k]: v } });
+  const ag = (k: keyof AnfrageEingabe['auftraggeber'], v: string) =>
+    setD({ ...d, auftraggeber: { ...d.auftraggeber, [k]: v }, ...(k === 'name' && d.auftraggeber.istHalter ? { adresse: { ...d.adresse, halter: v } } : {}) });
+  // „Ich bin selbst der Hundehalter“: Name wird Halter, die Adresse aus Abschnitt 3 gilt für beide
+  const setzeHalter = (an: boolean) =>
+    setD({ ...d, auftraggeber: { ...d.auftraggeber, istHalter: an }, adresse: { ...d.adresse, halter: an ? d.auftraggeber.name : '' } });
+  const halterAdresse = [d.adresse.strasse, `${d.adresse.plz} ${d.adresse.ort}`.trim()].filter(Boolean).join(', ');
 
   function standort() {
     if (!navigator.geolocation) return setFehler('Dieses Gerät kann den Standort nicht bestimmen.');
@@ -132,7 +137,9 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
 
       <Abschnitt nr={3} titel="Wo ist der Hund? (Adresse Hundehalter)">
         {!oeffentlich && (
-          <Feld label="Name Hundehalter"><input className="eingabe" maxLength={80} value={d.adresse.halter} onChange={(e) => adr('halter', e.target.value)} /></Feld>
+          <Feld label="Name Hundehalter" hilfe={d.auftraggeber.istHalter ? 'Übernommen aus den Kontaktdaten (Auftraggeber ist Hundehalter)' : undefined}>
+            <input className="eingabe" maxLength={80} value={d.adresse.halter} disabled={d.auftraggeber.istHalter} onChange={(e) => adr('halter', e.target.value)} />
+          </Feld>
         )}
         <Feld label="Straße und Hausnummer bzw. Ort"><input className="eingabe" maxLength={100} value={d.adresse.strasse} onChange={(e) => adr('strasse', e.target.value)} autoComplete="street-address" /></Feld>
         <div className="grid grid-cols-[7rem_1fr] gap-3">
@@ -154,6 +161,18 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
           <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
         </div>
         <Feld label="Erreichbar"><input className="eingabe" maxLength={120} value={d.auftraggeber.erreichbar} onChange={(e) => ag('erreichbar', e.target.value)} placeholder="z. B. jederzeit, Mo–Fr 8–16 Uhr" /></Feld>
+        <label className={klassen('flex min-h-12 items-start gap-3 rounded-xl p-3 text-sm ring-1',
+          d.auftraggeber.istHalter ? 'bg-himmel-50 ring-himmel-300 dark:bg-slate-800' : 'ring-himmel-200 dark:ring-slate-600')}>
+          <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={!!d.auftraggeber.istHalter} onChange={(e) => setzeHalter(e.target.checked)} />
+          <span>
+            <b>{oeffentlich ? 'Ich bin selbst der Hundehalter' : 'Auftraggeber ist der Hundehalter'}</b>
+            <span className="block text-slate-500">
+              {d.auftraggeber.istHalter
+                ? `Adresse übernommen: ${halterAdresse || 'bitte oben unter „Wo ist der Hund?“ eintragen'}`
+                : 'Dann gilt die Adresse aus „Wo ist der Hund?“ auch als Ihre Adresse.'}
+            </span>
+          </span>
+        </label>
       </Abschnitt>
 
       {zusatz}

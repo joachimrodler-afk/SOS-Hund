@@ -188,6 +188,14 @@ const wieder = ok(aufruf('anfrage_detail', { id: meldung.id }, rita.token));
 assert.equal(wieder.status, 'offen');
 assert.equal(wieder.eskaliert, false, 'Eskalation beginnt neu');
 
+// ---------------------------------------------------------------- Melder ist Hundehalter
+const mh = ok(aufruf('melden', { ...anfrage, beschreibung: 'Mein Hund ist weggelaufen', adresse: { strasse: 'Lindenweg 3', plz: '85737', ort: 'Ismaning', halter: 'falsch' }, auftraggeber: { name: 'Hans Halter', telefon: '0170 5', istHalter: true }, datenschutz: true }));
+const mhId = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === mh.nummer).id;
+const mhDet = ok(aufruf('anfrage_detail', { id: mhId }, rita.token));
+assert.equal(mhDet.details.auftraggeber.istHalter, true);
+assert.equal(mhDet.details.adresse.halter, 'Hans Halter', 'Halter = Melder');
+ok(aufruf('anfrage_pruefen', { id: mhId, freigeben: false }, rita.token));
+
 // ---------------------------------------------------------------- Meldung verwerfen
 const m2 = ok(aufruf('melden', { ...anfrage, beschreibung: 'Test', auftraggeber: { name: 'X', telefon: '1' }, datenschutz: true }));
 const m2id = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === m2.nummer).id;

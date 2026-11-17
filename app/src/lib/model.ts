@@ -75,6 +75,8 @@ export interface Auftraggeber {
   telefon: string;
   email: string;
   erreichbar: string;
+  /** Der Melder ist selbst der Hundehalter – seine Adresse ist die Adresse aus „Wo ist der Hund?“ */
+  istHalter?: boolean;
 }
 
 export interface AnfrageEingabe {

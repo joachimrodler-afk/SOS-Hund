@@ -834,8 +834,11 @@ function anfrageDaten_(d) {
     auftraggeber: {
       name: txtFeld_(ag.name, 80), organisation: txtFeld_(ag.organisation, 80), telefon: txtFeld_(ag.telefon, 40),
       email: txtFeld_(ag.email, 80), erreichbar: txtFeld_(ag.erreichbar, 120),
+      istHalter: ag.istHalter === true,
     },
   };
+  // Melder ist selbst der Hundehalter: Name als Halter übernehmen, die Adresse gilt für beide
+  if (o.auftraggeber.istHalter) o.adresse.halter = o.auftraggeber.name;
   if (!o.beschreibung) throw fehler_('Bitte kurz beschreiben, was los ist', 400);
   if (!/^\d{5}$/.test(o.adresse.plz)) throw fehler_('Bitte eine gültige Postleitzahl angeben', 400);
   if (!o.adresse.ort) throw fehler_('Bitte den Ort angeben', 400);
@@ -1156,7 +1159,7 @@ function export_(d, s) {
       nummer: k.nummer, erstellt: k.erstellt, region: k.regionName, status: STATUS_NAME[k.status] || k.status, dringlichkeit: k.dringlichkeit,
       quelle: k.quelle, beschreibung: k.beschreibung, hund: k.hund, alter: (dt.hund || {}).alter || '', ort: k.ort,
       strasse: (dt.adresse || {}).strasse || '', halter: (dt.adresse || {}).halter || '',
-      auftraggeber: [(dt.auftraggeber || {}).name, (dt.auftraggeber || {}).organisation].filter(Boolean).join(', '),
+      auftraggeber: [(dt.auftraggeber || {}).name, (dt.auftraggeber || {}).organisation, (dt.auftraggeber || {}).istHalter ? 'Hundehalter' : ''].filter(Boolean).join(', '),
       uebernommen: k.uebernommenName, helfer: k.helfer.map(function (h) { return h.name; }).join(', '),
       abgeschlossen: zelle_(a.abgeschlossenAm),
     };

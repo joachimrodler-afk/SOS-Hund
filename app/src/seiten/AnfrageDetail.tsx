@@ -204,6 +204,7 @@ function Inhalt({ id }: { id: string }) {
           <Zeile label="Telefon">{ag.telefon && <TelLink nummer={ag.telefon} />}</Zeile>
           <Zeile label="E-Mail">{ag.email && <a className="underline" href={`mailto:${ag.email}?subject=${encodeURIComponent(a.nummer)}`}>{ag.email}</a>}</Zeile>
           <Zeile label="Erreichbar">{ag.erreichbar}</Zeile>
+          <Zeile label="Hundehalter">{ag.istHalter ? `ja – Adresse siehe „Ort“` : ''}</Zeile>
         </dl>
         {a.team.length > 0 && (
           <>
