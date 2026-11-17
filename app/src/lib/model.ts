@@ -46,6 +46,8 @@ export interface Region {
   nachbarn?: string[];
   aktiv?: boolean;
   mitglieder?: number;
+  /** Namen der Regionalleiter (nur in der Verwaltung) */
+  leiter?: string[];
 }
 
 export interface Hund {

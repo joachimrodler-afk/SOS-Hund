@@ -542,7 +542,10 @@ function regionenOeffentlich_() {
 function regionenVerwaltung_() {
   var mitglieder = zeilen_('Mitglieder').filter(function (m) { return String(m.aktiv) === 'true'; });
   return regionenAlle_().map(function (r) {
-    r.mitglieder = mitglieder.filter(function (m) { return m.rolle !== 'behoerde' && liste_(m.regionen).indexOf(r.id) >= 0; }).length;
+    var drin = mitglieder.filter(function (m) { return liste_(m.regionen).indexOf(r.id) >= 0; });
+    r.mitglieder = drin.filter(function (m) { return m.rolle !== 'behoerde'; }).length;
+    r.leiter = drin.filter(function (m) { return m.rolle === 'regionalleiter'; })
+      .map(function (m) { return (m.vorname + ' ' + m.nachname).trim(); });
     return r;
   }).sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
 }

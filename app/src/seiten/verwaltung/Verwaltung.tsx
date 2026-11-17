@@ -16,6 +16,7 @@ function Inhalt() {
         <Zeile zu="/verwaltung/zugaenge" icon="einladung" titel="Einladungen & Registrierungen" text="Einladen, freigeben, PIN verschicken" rechts={zahl(daten?.registrierungen)} />
         <Zeile zu="/verwaltung/mitglieder" icon="personen" titel="Zugänge" text={admin ? 'Mitglieder, Regionalleiter, Behörden, Admins' : 'Mitglieder und Behörden deiner Regionen'} />
         <Zeile zu="/verwaltung/regionen" icon="karte" titel="Regionen" text={admin ? 'PLZ-Bereiche und Nachbarregionen' : 'Übersicht'} />
+        {admin && <Zeile zu="/verwaltung/karte" icon="karte" titel="Deutschlandkarte" text="Vergebene Gebiete, Regionalleiter, freie PLZ-Bereiche" />}
         <Zeile zu="/verwaltung/mitteilung" icon="glocke" titel="Mitteilung senden" text={admin ? 'Push an alle oder einzelne Regionen' : 'Push an deine Regionen'} />
         <Zeile zu="/export" icon="download" titel="Export" text="Anfragen als CSV oder PDF" />
         {admin && <Zeile zu="/verwaltung/einstellungen" icon="zahnrad" titel="Einstellungen" text="Texte, Eskalation, Datenschutz" />}

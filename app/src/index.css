@@ -93,3 +93,10 @@ body {
 /* Leaflet-Karte: Bedienelemente im Dunkelmodus lesbar halten */
 .leaflet-container { font: inherit; border-radius: 1rem; z-index: 0; }
 .dark .leaflet-tile { filter: brightness(0.75) contrast(1.1); }
+
+/* Nummern der PLZ-Bereiche auf der Deutschlandkarte */
+.leaflet-tooltip.plz-marke {
+  background: transparent; border: 0; box-shadow: none; padding: 0;
+  font: 700 11px/1 system-ui, sans-serif; color: #0f172a; text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+.leaflet-tooltip.plz-marke::before { display: none; }

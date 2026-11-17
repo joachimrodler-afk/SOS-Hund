@@ -61,6 +61,7 @@ assert.equal(ritaFrei.telefon, '0170 1111');
 const rita = ok(aufruf('login', { name: 'Rita Leiter', pin: ritaFrei.pin }));
 assert.equal(rita.rolle, 'regionalleiter');
 assert.deepEqual(rita.regionen, [muc]);
+assert.deepEqual(ok(aufruf('regionen_verwaltung', {}, admin.token)).find((r) => r.id === muc).leiter, ['Rita Leiter'], 'Regionalleiter je Region');
 
 // Regionalleiterin lädt Mitglieder und eine Behörde ein – nur für eigene Regionen
 nein(aufruf('einladung_erstellen', { rolle: 'mitglied', regionen: [ebe] }, rita.token), 'fremde Region');

@@ -66,6 +66,7 @@ function Inhalt() {
                 <div className="flex-1">
                   <p className="font-semibold">{r.name}{!r.aktiv && ' (inaktiv)'}{s.regionen.includes(r.id) && <span className="ml-2 rounded-full bg-himmel-100 px-2 py-0.5 text-xs text-himmel-900">meine</span>}</p>
                   <p className="font-mono text-xs text-slate-500">{r.plz || 'keine PLZ'}</p>
+                  {r.leiter?.length ? <p className="text-xs">Leitung: {r.leiter.join(', ')}</p> : null}
                   <p className="text-xs text-slate-500">{r.mitglieder} Helfer{r.nachbarn?.length ? ` · Nachbarn: ${r.nachbarn.map(name).join(', ')}` : ''}</p>
                 </div>
                 {admin && <button onClick={() => setBearbeitet(r.id)} aria-label={`${r.name} bearbeiten`} className="p-2 text-himmel-700"><Icon name="stift" className="h-5 w-5" /></button>}
