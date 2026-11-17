@@ -141,23 +141,31 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
   const blob = (bytes, mime, name) => ({
     getBytes: () => bytes, getContentType: () => mime, getName: () => name,
   });
-  const datei = (id) => {
-    const f = dateien[id];
-    if (!f || f.papierkorb) throw new Error('Datei nicht gefunden: ' + id);
-    return {
-      getId: () => id,
-      getBlob: () => blob(base64Bytes(f.data), f.mime, f.name),
-      setTrashed: (v) => { f.papierkorb = !!v; },
-    };
-  };
-  const ordner = (id) => ({
-    getId: () => id,
-    createFile: (b) => {
-      const fid = 'f' + uuid().slice(0, 12);
-      dateien[fid] = { name: b.getName(), mime: b.getContentType(), data: base64(b.getBytes().map((x) => (x + 256) % 256)), ordner: id };
-      return datei(fid);
+  /** Nachbildung der Drive-API v3 (erweiterter Dienst „Drive“) */
+  const ordnerListe = {};
+  const neueId = () => 'f' + uuid().slice(0, 12);
+  const Drive = {
+    Files: {
+      create: (meta, b) => {
+        const id = neueId();
+        if (b) dateien[id] = { name: meta.name, mime: b.getContentType(), data: base64(b.getBytes().map((x) => (x + 256) % 256)), ordner: (meta.parents || [])[0] };
+        else ordnerListe[id] = { name: meta.name };
+        return { id };
+      },
+      get: (id) => {
+        const f = dateien[id] || ordnerListe[id];
+        if (!f) throw new Error('File not found: ' + id);
+        return { id, trashed: !!f.papierkorb };
+      },
+      update: (meta, id) => {
+        const f = dateien[id];
+        if (!f) throw new Error('File not found: ' + id);
+        if ('trashed' in meta) f.papierkorb = !!meta.trashed;
+        return { id };
+      },
     },
-  });
+  };
+  const DRIVE_MEDIA = /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/;
   return {
     console,
     SpreadsheetApp: { openById: () => tabelle, flush: () => {} },
@@ -167,6 +175,7 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
     },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
     ScriptApp: {
+      getOAuthToken: () => 'token',
       getProjectTriggers: () => [],
       deleteTrigger: () => {},
       newTrigger: () => {
@@ -199,12 +208,19 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
       },
     },
     MailApp: { sendEmail: (m) => mails.push(m) },
-    DriveApp: {
-      createFolder: () => ordner('ordner-' + uuid().slice(0, 8)),
-      getFolderById: (id) => ordner(id),
-      getFileById: (id) => datei(id),
+    Drive,
+    UrlFetchApp: {
+      fetch: (url, o) => {
+        const m = DRIVE_MEDIA.exec(url);
+        if (m) {
+          const f = dateien[decodeURIComponent(m[1])];
+          const ok = f && !f.papierkorb;
+          return { getResponseCode: () => (ok ? 200 : 404), getBlob: () => blob(base64Bytes(f.data), f.mime, f.name) };
+        }
+        pushes.push({ url, o });
+        return { getResponseCode: () => 200, getContentText: () => '{"access_token":"x"}' };
+      },
     },
-    UrlFetchApp: { fetch: (url, o) => { pushes.push({ url, o }); return { getResponseCode: () => 200, getContentText: () => '{"access_token":"x"}' }; } },
   };
 }
 

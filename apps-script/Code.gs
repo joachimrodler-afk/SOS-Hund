@@ -180,8 +180,7 @@ function taeglich() {
 
 /** Einmal im Editor ausführen: erteilt die Drive-Freigabe und legt den Foto-Ordner an */
 function fotoOrdnerEinrichten() {
-  var ordner = fotoOrdner_();
-  console.log('Foto-Ordner: ' + ordner.getName() + ' (' + ordner.getId() + ')');
+  console.log('Foto-Ordner „SOS Hund – Fotos“: ' + fotoOrdner_());
 }
 
 /** Alle 5 Minuten: nicht übernommene Anfragen an Nachbarregionen eskalieren */
@@ -1231,23 +1230,40 @@ function fotosPruefen_(fotos) {
   });
 }
 
+/*
+ * Drive-Zugriff über die Drive-API (erweiterter Dienst „Drive“, v3) mit dem Scope drive.file:
+ * Das Script sieht nur Ordner und Dateien, die es selbst angelegt hat – nicht das übrige Drive.
+ */
 function fotoOrdner_() {
   var id = prop_('FOTO_ORDNER_ID');
   if (id) {
-    try { return DriveApp.getFolderById(id); } catch (e) { console.warn('Foto-Ordner nicht gefunden, lege neu an'); }
+    try {
+      var f = Drive.Files.get(id, { fields: 'id,trashed' });
+      if (f && !f.trashed) return f.id;
+    } catch (e) { console.warn('Foto-Ordner nicht gefunden, lege neu an'); }
   }
-  var ordner = DriveApp.createFolder('SOS Hund – Fotos');
-  PropertiesService.getScriptProperties().setProperty('FOTO_ORDNER_ID', ordner.getId());
-  return ordner;
+  var ordner = Drive.Files.create({ name: 'SOS Hund – Fotos', mimeType: 'application/vnd.google-apps.folder' });
+  PropertiesService.getScriptProperties().setProperty('FOTO_ORDNER_ID', ordner.id);
+  return ordner.id;
 }
 
 function fotosSpeichern_(geprueft, name) {
   if (!geprueft.length) return [];
-  var ordner = fotoOrdner_();
+  var ordnerId = fotoOrdner_();
   return geprueft.map(function (f, i) {
-    var blob = Utilities.newBlob(f.bytes, f.mime, name + '-' + (i + 1) + '.' + FOTO_TYPEN[f.mime]);
-    return ordner.createFile(blob).getId();
+    var dateiname = name + '-' + (i + 1) + '.' + FOTO_TYPEN[f.mime];
+    var blob = Utilities.newBlob(f.bytes, f.mime, dateiname);
+    return Drive.Files.create({ name: dateiname, mimeType: f.mime, parents: [ordnerId] }, blob, { fields: 'id' }).id;
   });
+}
+
+function fotoLaden_(fid) {
+  var r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fid) + '?alt=media', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true,
+  });
+  if (r.getResponseCode() !== 200) throw new Error('Foto ' + fid + ': HTTP ' + r.getResponseCode());
+  return r.getBlob();
 }
 
 /** Fotos einer Anfrage – nur für alle, die die Anfrage sehen dürfen */
@@ -1258,7 +1274,7 @@ function anfrageFotos_(d, s) {
   if (ids.length) protokoll_(s, 'Fotos angesehen', a.id);
   return ids.map(function (fid) {
     try {
-      var b = DriveApp.getFileById(fid).getBlob();
+      var b = fotoLaden_(fid);
       return { id: fid, mime: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) };
     } catch (e) {
       return { id: fid, fehlt: true };
@@ -1268,7 +1284,7 @@ function anfrageFotos_(d, s) {
 
 function fotosLoeschen_(ids) {
   (ids || []).forEach(function (fid) {
-    try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) { console.warn('Foto ' + fid + ' nicht gelöscht: ' + e); }
+    try { Drive.Files.update({ trashed: true }, fid); } catch (e) { console.warn('Foto ' + fid + ' nicht gelöscht: ' + e); }
   });
 }
 
