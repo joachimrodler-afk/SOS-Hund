@@ -64,6 +64,13 @@ assert.deepEqual(rita.regionen, [muc]);
 const rMuc = ok(aufruf('regionen_verwaltung', {}, admin.token)).find((r) => r.id === muc);
 assert.deepEqual(rMuc.leiter, ['Rita Leiter'], 'Regionalleiter je Region');
 assert.deepEqual(rMuc.leiterIds, [rita.mitgliedId], 'IDs der Regionalleiter');
+const kontakt = ok(aufruf('admins_kontakt', {}, rita.token));
+assert.equal(kontakt.length, 1, 'Regionalleiter sieht den Admin');
+assert.equal(kontakt[0].id, admin.mitgliedId);
+nein(aufruf('nachricht_an_admins', { titel: '' }, rita.token), 'Betreff Pflicht');
+const nAdmin = ok(aufruf('nachricht_an_admins', { titel: 'Neue Helfer', text: 'Bitte Rückruf' }, rita.token));
+assert.equal(nAdmin.admins, 1);
+
 
 // Regionalleiterin lädt Mitglieder und eine Behörde ein – nur für eigene Regionen
 nein(aufruf('einladung_erstellen', { rolle: 'mitglied', regionen: [ebe] }, rita.token), 'fremde Region');

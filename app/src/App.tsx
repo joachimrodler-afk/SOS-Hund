@@ -23,6 +23,7 @@ const Zugaenge = lazy(() => import('./seiten/verwaltung/Zugaenge'));
 const Mitglieder = lazy(() => import('./seiten/verwaltung/Mitglieder'));
 const Regionen = lazy(() => import('./seiten/verwaltung/Regionen'));
 const Gebietskarte = lazy(() => import('./seiten/verwaltung/Gebietskarte'));
+const AdminKontakt = lazy(() => import('./seiten/verwaltung/AdminKontakt'));
 const EinstellungenSeite = lazy(() => import('./seiten/verwaltung/Einstellungen'));
 const Mitteilung = lazy(() => import('./seiten/verwaltung/Mitteilung'));
 const Protokoll = lazy(() => import('./seiten/verwaltung/Protokoll'));
@@ -117,6 +118,7 @@ export default function App() {
               <Route path="/verwaltung/mitglieder" element={<Mitglieder />} />
               <Route path="/verwaltung/regionen" element={<Regionen />} />
               <Route path="/verwaltung/karte" element={<Gebietskarte />} />
+              <Route path="/verwaltung/admin-kontakt" element={<AdminKontakt />} />
               <Route path="/verwaltung/einstellungen" element={<EinstellungenSeite />} />
               <Route path="/verwaltung/mitteilung" element={<Mitteilung />} />
               <Route path="/verwaltung/protokoll" element={<Protokoll />} />

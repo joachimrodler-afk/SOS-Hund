@@ -23,6 +23,7 @@ function Inhalt() {
         {admin && <Zeile zu="/verwaltung/protokoll" icon="uhr" titel="Zugriffsprotokoll" text="Wer hat welche Anfrage angesehen oder geändert" />}
       </div>
       <div className="karte divide-y divide-himmel-100 overflow-hidden dark:divide-slate-700">
+        {!admin && <Zeile zu="/verwaltung/admin-kontakt" icon="telefon" titel="Admin kontaktieren" text="Anrufen, E-Mail oder Nachricht an die Admins" />}
         <Zeile zu="/konto" icon="person" titel="Mein Konto" text="Angaben, Push, PIN ändern, Abmelden" />
       </div>
     </div>

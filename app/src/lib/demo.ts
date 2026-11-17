@@ -15,7 +15,7 @@
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
 
-const KEY = 'sos.demo.v2';
+const KEY = 'sos.demo.v3';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -61,7 +61,7 @@ function speichern() {
 }
 
 function laden() {
-  try { localStorage.removeItem('sos.demo.v1'); } catch { /* alte Demo-Daten */ }
+  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -105,7 +105,11 @@ function beispieldaten() {
   ok(aufruf('region_speichern', { id: muc, name: 'LK München', plz: '857*, 85540, 80331-81929', nachbarn: [fs, ebe] }, t));
   ok(aufruf('region_speichern', { id: fs, name: 'LK Freising', plz: '853*, 854*', nachbarn: [muc] }, t));
   ok(aufruf('region_speichern', { id: ebe, name: 'LK Ebersberg', plz: '855*, 856*', nachbarn: [muc] }, t));
-  ok(aufruf('mitglied_aendern', { id: ok<{ id: string }>(aufruf('ich', {}, t)).id, regionen: [muc] }, t));
+  const adminId = ok<{ id: string }>(aufruf('ich', {}, t)).id;
+  ok(aufruf('mitglied_aendern', { id: adminId, regionen: [muc] }, t));
+  intern.aktualisiereZeile_('Mitglieder', 'id', adminId, (r: Record<string, unknown>) => {
+    r.telefon = "'0170 9999999"; r.email = 'admin@example.org'; return r;
+  });
 
   const neu = (vorname: string, nachname: string, rolle: string, regionen: string[], pin: string, extra: Record<string, string> = {}) =>
     intern.mitgliedSchreiben_({ vorname, nachname, rolle, regionen: regionen.join(','), telefon: extra.telefon ?? '0170 0000000', email: extra.email ?? '', organisation: extra.organisation ?? '' }, pin);

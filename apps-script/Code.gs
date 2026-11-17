@@ -134,6 +134,8 @@ var AKTIONEN = {
   region_speichern: { recht: 'admin', fn: regionSpeichern_ },
   einstellungen_speichern: { recht: 'admin', fn: einstellungenSpeichern_ },
   mitteilung_senden: { recht: 'leitung', fn: mitteilungSenden_ },
+  admins_kontakt: { recht: 'leitung', fn: adminsKontakt_ },
+  nachricht_an_admins: { recht: 'leitung', fn: nachrichtAnAdmins_ },
   protokoll: { recht: 'admin', fn: protokollListe_ },
   // Push
   push_abo: { recht: 'angemeldet', fn: pushAbo_ },
@@ -1448,6 +1450,45 @@ function mitteilungSenden_(d, s) {
     ? zeilen_('Mitglieder').filter(function (m) { return String(m.aktiv) === 'true' && schnitt_(liste_(m.regionen), regionen); }).map(function (m) { return m.id; })
     : null;
   return { gesendet: pushSenden_('mitteilungen', titel, String(d.text || ''), '#/', null, nur), empfaenger: nur ? nur.length : -1 };
+}
+
+/** Kontaktdaten aller aktiven Admins – für Regionalleiter, damit sie den Admin erreichen */
+function adminsKontakt_(d, s) {
+  return zeilen_('Mitglieder')
+    .filter(function (m) { return m.rolle === 'admin' && String(m.aktiv) === 'true' && m.id !== s.mitgliedId; })
+    .map(function (m) { return { id: m.id, name: (m.vorname + ' ' + m.nachname).trim(), telefon: zelle_(m.telefon), email: m.email || '' }; })
+    .sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
+}
+
+/** Nachricht eines Regionalleiters an alle Admins: Push und – falls hinterlegt – E-Mail */
+function nachrichtAnAdmins_(d, s) {
+  var betreff = String(d.titel || '').trim().slice(0, 80);
+  var text = String(d.text || '').trim().slice(0, 2000);
+  if (!betreff) throw fehler_('Betreff fehlt', 400);
+  var ich = mitgliedNachId_(s.mitgliedId) || {};
+  var regionen = s.regionen.map(regionName_).filter(Boolean).join(', ');
+  var absender = s.name + (regionen ? ' (' + regionen + ')' : '');
+  var admins = zeilen_('Mitglieder').filter(function (m) { return m.rolle === 'admin' && String(m.aktiv) === 'true' && m.id !== s.mitgliedId; });
+  if (!admins.length) throw fehler_('Kein Admin gefunden', 404);
+  var push = pushSenden_('verwaltung', 'Nachricht von ' + s.name + ': ' + betreff, text, '#/verwaltung', null, admins.map(function (m) { return m.id; }));
+  var mails = 0;
+  var netz = einstellungenLesen_().netzwerkName;
+  admins.forEach(function (m) {
+    if (!m.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m.email)) return;
+    try {
+      var o = {
+        to: m.email,
+        subject: netz + ': Nachricht von ' + s.name + ' – ' + betreff,
+        body: 'Nachricht von ' + absender + ':\n\n' + betreff + '\n\n' + (text || '(kein weiterer Text)') + '\n\n'
+          + 'Telefon: ' + (zelle_(ich.telefon) || '–') + '\nE-Mail: ' + (ich.email || '–') + '\n\n(Gesendet aus der App ' + netz + '.)',
+      };
+      if (ich.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ich.email)) o.replyTo = ich.email;
+      MailApp.sendEmail(o);
+      mails++;
+    } catch (e) { console.warn('Mail an Admin fehlgeschlagen: ' + e); }
+  });
+  protokoll_(s, 'Nachricht an Admins: ' + betreff, '');
+  return { push: push, mails: mails, admins: admins.length };
 }
 
 /**
