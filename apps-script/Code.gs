@@ -544,8 +544,9 @@ function regionenVerwaltung_() {
   return regionenAlle_().map(function (r) {
     var drin = mitglieder.filter(function (m) { return liste_(m.regionen).indexOf(r.id) >= 0; });
     r.mitglieder = drin.filter(function (m) { return m.rolle !== 'behoerde'; }).length;
-    r.leiter = drin.filter(function (m) { return m.rolle === 'regionalleiter'; })
-      .map(function (m) { return (m.vorname + ' ' + m.nachname).trim(); });
+    var leiter = drin.filter(function (m) { return m.rolle === 'regionalleiter'; });
+    r.leiter = leiter.map(function (m) { return (m.vorname + ' ' + m.nachname).trim(); });
+    r.leiterIds = leiter.map(function (m) { return m.id; });
     return r;
   }).sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
 }

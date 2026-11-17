@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
+import { Link, useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import { NurAngemeldet } from '../../components/Anmelden';
 import { Fehler, Hinweis, Laden, Seite, useLaden } from '../../components/ui';
@@ -36,6 +37,7 @@ function Inhalt() {
   const regionen = useLaden(() => api<Region[]>('regionen_verwaltung'));
   const flaechen = useLaden(bereicheLaden);
   const el = useRef<HTMLDivElement>(null);
+  const nav = useNavigate();
 
   const alle = useMemo(() => regionen.daten ?? [], [regionen.daten]);
   const farbe = useMemo(() => {
@@ -99,18 +101,29 @@ function Inhalt() {
         const w = auswertung.proBereich.get(f.properties.bereich)!;
         const zeilen = [...w.anteile.entries()].sort((x, y) => y[1] - x[1]).map(([id, n]) => {
           const r = alle.find((x) => x.id === id);
-          const leiter = r?.leiter?.length ? `<br><span style="color:#64748b">Leitung: ${esc(r.leiter.join(', '))}</span>` : '';
+          const leiter = r?.leiter?.length
+            ? `<br><span style="color:#64748b">Leitung: ${r.leiter.map((n, i) => r.leiterIds?.[i]
+              ? `<a href="#/verwaltung/mitglieder?id=${encodeURIComponent(r.leiterIds[i])}" style="color:#1d4ed8;text-decoration:underline">${esc(n)}</a>`
+              : esc(n)).join(', ')}</span>`
+            : '';
           const punkt = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${id ? farbe.get(id) : FREI}"></span>`;
           return `<div style="margin-top:4px">${punkt}<b>${esc(name(id))}</b>: ${n} PLZ (${prozent(n, w.gesamt)} %)${leiter}</div>`;
         }).join('');
         const konflikt = w.konflikte ? `<div style="margin-top:6px;color:#b91c1c">⚠ ${w.konflikte} PLZ passen gleich genau zu mehreren Regionen</div>` : '';
-        layer.bindPopup(`<div style="min-width:200px"><b style="font-size:15px">PLZ-Bereich ${f.properties.bereich}xxx</b><br><span style="color:#64748b">${w.gesamt} Postleitzahlen</span>${zeilen}${konflikt}</div>`);
+        const inhalt = (`<div style="min-width:200px"><b style="font-size:15px">PLZ-Bereich ${f.properties.bereich}xxx</b><br><span style="color:#64748b">${w.gesamt} Postleitzahlen</span>${zeilen}${konflikt}</div>`);
+        // Genau ein Regionalleiter im Bereich → direkt zu seinem Profil, sonst Auswahl im Fenster
+        const leiterIds = [...new Set([...w.anteile.keys()].filter(Boolean)
+          .flatMap((id) => alle.find((x) => x.id === id)?.leiterIds ?? []))];
+        layer.on('click', (e: L.LeafletMouseEvent) => {
+          if (leiterIds.length === 1) nav(`/verwaltung/mitglieder?id=${encodeURIComponent(leiterIds[0])}`);
+          else L.popup().setLatLng(e.latlng).setContent(inhalt).openOn(karte);
+        });
         layer.bindTooltip(f.properties.bereich, { permanent: true, direction: 'center', className: 'plz-marke' });
       },
     }).addTo(karte);
     karte.fitBounds(ebene.getBounds(), { padding: [8, 8] });
     return () => { karte.remove(); };
-  }, [flaechen.daten, regionen.daten, auswertung, farbe, alle]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [flaechen.daten, regionen.daten, auswertung, farbe, alle, nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (regionen.fehler || flaechen.fehler) return <Fehler fehler={regionen.fehler || flaechen.fehler} nochmal={() => { void regionen.neu(); void flaechen.neu(); }} />;
   if (!regionen.daten || !flaechen.daten) return <Laden text="Karte laden …" />;
@@ -127,7 +140,7 @@ function Inhalt() {
       <div ref={el} className="h-[70vh] w-full overflow-hidden rounded-2xl ring-1 ring-himmel-200 dark:ring-slate-700" role="region" aria-label="Deutschlandkarte der Regionen" />
       <p className="text-xs text-slate-500">
         Farbe = Region mit den meisten PLZ im Bereich, kräftiger = höherer Anteil vergeben, grau = frei.
-        Rot gestrichelt = Überschneidung. Gebiet antippen für Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
+        Rot gestrichelt = Überschneidung. Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
       </p>
 
       {a.konfliktPlz.length > 0 && (
@@ -146,7 +159,13 @@ function Inhalt() {
             <span className="mt-1 h-4 w-4 shrink-0 rounded" style={{ background: farbe.get(r.id) }} />
             <div className="flex-1">
               <p className="font-semibold">{r.name}{r.aktiv === false && ' (inaktiv, nicht auf der Karte)'}</p>
-              <p className="text-sm">{r.leiter?.length ? `Leitung: ${r.leiter.join(', ')}` : <span className="text-sos-rot">keine Regionalleitung</span>}</p>
+              <p className="text-sm">{r.leiter?.length ? (
+                <>Leitung: {r.leiter.map((n, i) => (
+                  <span key={n + i}>{i > 0 && ', '}{r.leiterIds?.[i]
+                    ? <Link to={`/verwaltung/mitglieder?id=${encodeURIComponent(r.leiterIds[i])}`} className="font-medium text-himmel-700 underline dark:text-himmel-300">{n}</Link>
+                    : n}</span>
+                ))}</>
+              ) : <span className="text-sos-rot">keine Regionalleitung</span>}</p>
               <p className="text-xs text-slate-500">{a.proRegion.get(r.id) ?? 0} PLZ · {r.mitglieder ?? 0} Helfer · <span className="font-mono">{r.plz || 'keine PLZ'}</span></p>
             </div>
           </div>

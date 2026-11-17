@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { NurAngemeldet } from '../../components/Anmelden';
 import { TelLink } from '../../components/Anfrage';
 import { Icon } from '../../components/Icon';
@@ -12,12 +13,16 @@ import { PinAnzeige } from './Zugaenge';
 
 const ROLLEN: Rolle[] = ['mitglied', 'regionalleiter', 'behoerde', 'admin'];
 
-function Eintrag({ m, neu, onPin }: { m: Mitglied; neu: () => void; onPin: (p: { name: string; pin: string; telefon: string; email: string }) => void }) {
+function Eintrag({ m, neu, onPin, ziel = false }: { m: Mitglied; neu: () => void; onPin: (p: { name: string; pin: string; telefon: string; email: string }) => void; ziel?: boolean }) {
   const s = useSitzung()!;
   const alle = useRegionen();
   const admin = s.rolle === 'admin';
-  const [offen, setOffen] = useState(false);
+  const [offen, setOffen] = useState(ziel);
   const [fehler, setFehler] = useState('');
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ziel) { setOffen(true); el.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }, [ziel]);
   const [arbeitet, setArbeitet] = useState(false);
   const ich = m.id === s.mitgliedId;
   const darf = admin || (!ich && (m.rolle === 'mitglied' || m.rolle === 'behoerde'));
@@ -41,7 +46,7 @@ function Eintrag({ m, neu, onPin }: { m: Mitglied; neu: () => void; onPin: (p: {
   }
 
   return (
-    <div className={klassen('px-4 py-3', !m.aktiv && 'opacity-60')}>
+    <div ref={el} className={klassen('scroll-mt-24 px-4 py-3', !m.aktiv && 'opacity-60', ziel && 'bg-himmel-50 ring-2 ring-inset ring-himmel-400 dark:bg-slate-800')}>
       <button className="flex w-full items-center gap-3 text-left" onClick={() => setOffen(!offen)} aria-expanded={offen}>
         <span className="flex-1">
           <span className="block font-semibold">{m.vorname} {m.nachname}{ich && ' (du)'}</span>
@@ -148,6 +153,8 @@ function Inhalt() {
   const [pin, setPin] = useState<{ name: string; pin: string; telefon: string; email: string } | null>(null);
   const [suche, setSuche] = useState('');
   const [rolle, setRolle] = useState<Rolle | ''>('');
+  const [params] = useSearchParams();
+  const zielId = params.get('id') ?? '';
   if (fehler) return <Fehler fehler={fehler} nochmal={neu} />;
   if (laedt && !daten) return <Laden />;
   const liste = (daten ?? []).filter((m) => (!rolle || m.rolle === rolle) && `${m.vorname} ${m.nachname} ${m.organisation}`.toLowerCase().includes(suche.toLowerCase()));
@@ -164,7 +171,7 @@ function Inhalt() {
       </div>
       <p className="text-sm text-slate-500">{liste.length} Zugänge · {liste.filter((m) => m.aktiv && m.rolle !== 'behoerde' && m.verfuegbar).length} einsatzbereit</p>
       <div className="karte divide-y divide-himmel-100 overflow-hidden dark:divide-slate-700">
-        {liste.map((m) => <Eintrag key={m.id} m={m} neu={() => void neu()} onPin={setPin} />)}
+        {liste.map((m) => <Eintrag key={m.id} m={m} neu={() => void neu()} onPin={setPin} ziel={m.id === zielId} />)}
       </div>
     </div>
   );

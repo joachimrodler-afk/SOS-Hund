@@ -48,6 +48,8 @@ export interface Region {
   mitglieder?: number;
   /** Namen der Regionalleiter (nur in der Verwaltung) */
   leiter?: string[];
+  /** IDs der Regionalleiter, gleiche Reihenfolge wie leiter */
+  leiterIds?: string[];
 }
 
 export interface Hund {
