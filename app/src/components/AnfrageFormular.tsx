@@ -154,13 +154,6 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
       </Abschnitt>
 
       <Abschnitt nr={4} titel={oeffentlich ? 'Ihre Kontaktdaten' : 'Auftraggeber'}>
-        <div className="grid grid-cols-2 gap-3">
-          <Feld label="Name *"><input className="eingabe" required maxLength={80} value={d.auftraggeber.name} onChange={(e) => ag('name', e.target.value)} autoComplete="name" /></Feld>
-          <Feld label="Organisation / Behörde"><input className="eingabe" maxLength={80} value={d.auftraggeber.organisation} onChange={(e) => ag('organisation', e.target.value)} autoComplete="organization" /></Feld>
-          <Feld label="Telefon *"><input className="eingabe" required type="tel" maxLength={40} value={d.auftraggeber.telefon} onChange={(e) => ag('telefon', e.target.value)} autoComplete="tel" /></Feld>
-          <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
-        </div>
-        <Feld label="Erreichbar"><input className="eingabe" maxLength={120} value={d.auftraggeber.erreichbar} onChange={(e) => ag('erreichbar', e.target.value)} placeholder="z. B. jederzeit, Mo–Fr 8–16 Uhr" /></Feld>
         <label className={klassen('flex min-h-12 items-start gap-3 rounded-xl p-3 text-sm ring-1',
           d.auftraggeber.istHalter ? 'bg-himmel-50 ring-himmel-300 dark:bg-slate-800' : 'ring-himmel-200 dark:ring-slate-600')}>
           <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={!!d.auftraggeber.istHalter} onChange={(e) => setzeHalter(e.target.checked)} />
@@ -173,6 +166,13 @@ export function AnfrageFormular({ start, oeffentlich = false, knopf, senden, zus
             </span>
           </span>
         </label>
+        <div className="grid grid-cols-2 gap-3">
+          <Feld label="Name *"><input className="eingabe" required maxLength={80} value={d.auftraggeber.name} onChange={(e) => ag('name', e.target.value)} autoComplete="name" /></Feld>
+          <Feld label="Organisation / Behörde"><input className="eingabe" maxLength={80} value={d.auftraggeber.organisation} onChange={(e) => ag('organisation', e.target.value)} autoComplete="organization" /></Feld>
+          <Feld label="Telefon *"><input className="eingabe" required type="tel" maxLength={40} value={d.auftraggeber.telefon} onChange={(e) => ag('telefon', e.target.value)} autoComplete="tel" /></Feld>
+          <Feld label="E-Mail"><input className="eingabe" type="email" maxLength={80} value={d.auftraggeber.email} onChange={(e) => ag('email', e.target.value)} autoComplete="email" /></Feld>
+        </div>
+        <Feld label="Erreichbar"><input className="eingabe" maxLength={120} value={d.auftraggeber.erreichbar} onChange={(e) => ag('erreichbar', e.target.value)} placeholder="z. B. jederzeit, Mo–Fr 8–16 Uhr" /></Feld>
       </Abschnitt>
 
       {zusatz}
