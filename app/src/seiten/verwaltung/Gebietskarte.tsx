@@ -226,8 +226,8 @@ function Inhalt() {
         <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
           {kachel(a.helferGesamt, 'Helfer')}
           {kachel(a.bereitGesamt, 'einsatzbereit')}
-          {kachel(a.ohneHelfer, 'Bereiche ohne Helfer (rot: Region, aber niemand eingetragen)', a.ohneHelfer > 0)}
-          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Bereiche ohne Region (grau: noch kein Netzwerk)</p></div>
+          {kachel(a.ohneHelfer, 'Gebiete ohne Helfer', a.ohneHelfer > 0)}
+          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Gebiete noch ohne Netzwerk</p></div>
         </div>
       )}
 
@@ -246,9 +246,10 @@ function Inhalt() {
               <span key={x.ab} className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: x.farbe }} />{x.text}</span>
             ))}
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: KEINE_HELFER }} />keine Helfer</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />keine Region</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />noch kein Netzwerk</span>
           </div>
           <p className="text-xs text-slate-500">
+            Rot = Gebiet gehört zu einer Region, aber dort ist noch kein Helfer eingetragen. Grau = dort gibt es noch keine Region, Meldungen von dort erreichen niemand.
             Zahl = Helfer, die für PLZ im Bereich zuständig sind (Mitglieder und Regionalleiter, jeder nur einmal gezählt). Gebiet antippen: mit genau einem Helfer geht es direkt zu seinem Profil, sonst erscheint eine Auswahl aller Helfer (grüner Punkt = einsatzbereit).
           </p>
         </div>
