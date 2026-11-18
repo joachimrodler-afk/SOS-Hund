@@ -16,7 +16,7 @@ import { sicherSchreiben } from './api';
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle, sha256 } from './gasMock.js';
 
-const KEY = 'sos.demo.v5';
+const KEY = 'sos.demo.v6';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -58,7 +58,7 @@ function speichern() {
 }
 
 function laden() {
-  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); localStorage.removeItem('sos.demo.v4'); } catch { /* alte Demo-Daten */ }
+  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); localStorage.removeItem('sos.demo.v4'); localStorage.removeItem('sos.demo.v5'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -102,18 +102,19 @@ function vorMinuten(id: string, min: number, feld = 'erstellt') {
   });
 }
 
-/** Beispieldaten: 23 Regionen, 20 weitere Regionalleiter, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
+/** Beispieldaten: 95 Regionen nach PLZ-Leitbereich, 20 weitere Regionalleiter, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
 function beispieldaten() {
   const { aufruf, intern } = backend!;
   intern.setup();
   const admin = ok<{ token: string }>(aufruf('login', { name: 'Demo Admin', pin: '123456' }));
   const t = admin.token;
-  const muc = ok<{ id: string }>(aufruf('region_speichern', { name: 'LK München', plz: '857*, 85540, 80331-81929' }, t)).id;
-  const fs = ok<{ id: string }>(aufruf('region_speichern', { name: 'LK Freising', plz: '853*, 854*' }, t)).id;
-  const ebe = ok<{ id: string }>(aufruf('region_speichern', { name: 'LK Ebersberg', plz: '855*, 856*' }, t)).id;
-  ok(aufruf('region_speichern', { id: muc, name: 'LK München', plz: '857*, 85540, 80331-81929', nachbarn: [fs, ebe] }, t));
-  ok(aufruf('region_speichern', { id: fs, name: 'LK Freising', plz: '853*, 854*', nachbarn: [muc] }, t));
-  ok(aufruf('region_speichern', { id: ebe, name: 'LK Ebersberg', plz: '855*, 856*', nachbarn: [muc] }, t));
+  // Regionen nach den ersten zwei PLZ-Ziffern (95 Leitbereiche, mit Nachbarn) – wie im echten Betrieb
+  intern.regionenNachPlzAnlegen_();
+  const regs = ok<{ id: string; plz: string }[]>(aufruf('regionen_verwaltung', {}, t));
+  const bereich = (b: string) => regs.find((r) => r.plz === b + '*')!.id;
+  const muc = bereich('85'); // Ismaning, Freising, Erding, Ebersberg …
+  const fs = bereich('80'); // München Stadt – Nachbar von 85
+  const ebe = bereich('83'); // Rosenheim – Nachbar von 85 (für die Eskalation)
   const adminId = ok<{ id: string }>(aufruf('ich', {}, t)).id;
   ok(aufruf('mitglied_aendern', { id: adminId, regionen: [muc] }, t));
   intern.aktualisiereZeile_('Mitglieder', 'id', adminId, (r: Record<string, unknown>) => {
@@ -126,30 +127,15 @@ function beispieldaten() {
   neu('Max', 'Muster', 'mitglied', [muc], '111111', { telefon: '0171 1111111' });
   neu('Mia', 'Helfer', 'mitglied', [muc, fs], '333333', { telefon: '0172 3333333' });
   neu('Erik', 'Ebersberger', 'mitglied', [ebe], '555555', { telefon: '0173 5555555' });
-  neu('Vera', 'Veterinär', 'behoerde', [muc], '444444', { organisation: 'Veterinäramt LK München', telefon: '089 6221-0', email: 'veterinaeramt@example.org' });
+  neu('Vera', 'Veterinär', 'behoerde', [muc], '444444', { organisation: 'Veterinäramt Freising', telefon: '089 6221-0', email: 'veterinaeramt@example.org' });
 
   // 20 Regionalleiter in ganz Deutschland, je mit eigener Region (für die Deutschlandkarte)
-  const DEMO_REGIONEN: [string, string, string, string][] = [
-    ['Hamburg', '20*, 21*, 22*', 'Hanna', 'Hansen'],
-    ['Schleswig-Holstein', '23*, 24*, 25*', 'Kai', 'Kröger'],
-    ['Vorpommern', '17*, 18*', 'Ole', 'Ostermann'],
-    ['Berlin', '10*, 12*, 13*, 14*', 'Bettina', 'Brandt'],
-    ['Bremen', '26*, 27*, 28*', 'Jan', 'Janssen'],
-    ['Hannover', '30*, 31*', 'Nina', 'Niemeyer'],
-    ['Magdeburg', '38*, 39*', 'Maik', 'Möller'],
-    ['Dresden', '01*, 02*', 'Doreen', 'Dietrich'],
-    ['Leipzig', '04*, 06*', 'Lars', 'Lehmann'],
-    ['Münsterland', '48*', 'Greta', 'Hölscher'],
-    ['Ruhrgebiet', '44*, 45*', 'Dennis', 'Kowalski'],
-    ['Köln', '50*, 51*', 'Sabine', 'Krämer'],
-    ['Kassel', '34*', 'Tobias', 'Kessler'],
-    ['Erfurt', '99*', 'Ines', 'Engel'],
-    ['Frankfurt', '60*, 61*, 63*', 'Felix', 'Fischer'],
-    ['Saarland', '66*', 'Sophie', 'Schmitt'],
-    ['Stuttgart', '70*, 71*', 'Stefan', 'Schwab'],
-    ['Freiburg', '79*', 'Franziska', 'Faller'],
-    ['Nürnberg', '90*, 91*', 'Norbert', 'Neubauer'],
-    ['Regensburg', '93*', 'Rosa', 'Reindl'],
+  const DEMO_REGIONEN: [string, string, string][] = [
+    ['20', 'Hanna', 'Hansen'], ['24', 'Kai', 'Kröger'], ['17', 'Ole', 'Ostermann'], ['10', 'Bettina', 'Brandt'],
+    ['28', 'Jan', 'Janssen'], ['30', 'Nina', 'Niemeyer'], ['39', 'Maik', 'Möller'], ['01', 'Doreen', 'Dietrich'],
+    ['04', 'Lars', 'Lehmann'], ['48', 'Greta', 'Hölscher'], ['44', 'Dennis', 'Kowalski'], ['50', 'Sabine', 'Krämer'],
+    ['34', 'Tobias', 'Kessler'], ['99', 'Ines', 'Engel'], ['60', 'Felix', 'Fischer'], ['66', 'Sophie', 'Schmitt'],
+    ['70', 'Stefan', 'Schwab'], ['79', 'Franziska', 'Faller'], ['90', 'Norbert', 'Neubauer'], ['93', 'Rosa', 'Reindl'],
   ];
   // Dazu Helfer ohne Anmeldung (nur für die Helfer-Karte): unterschiedlich viele je Region, einige nicht einsatzbereit
   const VORNAMEN = ['Anna', 'Ben', 'Clara', 'David', 'Eva', 'Finn', 'Gabi', 'Hannes', 'Ida', 'Jonas', 'Kerstin', 'Lukas', 'Marie', 'Nils', 'Paula', 'Robert'];
@@ -162,13 +148,11 @@ function beispieldaten() {
         "'0160 " + String(5000000 + nr), '', '', '', '', 'true', nr % 4 === 3 ? 'false' : 'true', '{}', new Date().toISOString(), '']);
     }
   };
-  DEMO_REGIONEN.forEach(([region, plz, vorname, nachname], i) => {
-    const id = ok<{ id: string }>(aufruf('region_speichern', { name: region, plz }, t)).id;
+  DEMO_REGIONEN.forEach(([b, vorname, nachname], i) => {
+    const id = bereich(b);
     neu(vorname, nachname, 'regionalleiter', [id], String(700000 + i), { telefon: `0151 ${String(4000000 + i * 1111)}` });
     helferDazu(id, HELFER_JE_REGION[i]);
   });
-  // Eine Region ohne Leitung und ohne Helfer – so sieht eine Lücke auf der Karte aus
-  ok(aufruf('region_speichern', { name: 'Allgäu', plz: '87*' }, t));
 
   const login = (name: string, pin: string) => ok<{ token: string }>(aufruf('login', { name, pin })).token;
   const vera = login('Vera Veterinär', '444444');

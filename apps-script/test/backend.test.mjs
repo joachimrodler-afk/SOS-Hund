@@ -378,4 +378,21 @@ nein(aufruf('protokoll', {}, rita.token), 'Protokoll nur Admins');
   ok(aufruf('einstellungen_speichern', { gesperrteNummern: [] }, admin.token));
 }
 
+// ---------------------------------------------------------------- Regionen nach PLZ-Leitbereichen
+{
+  const vorher = ok(aufruf('regionen_verwaltung', {}, admin.token)).length;
+  const e1 = intern.regionenNachPlzAnlegen_();
+  assert.equal(e1.gesamt, 95, '95 Leitbereiche');
+  assert.equal(e1.neu + e1.vorhanden, 95);
+  const regs = ok(aufruf('regionen_verwaltung', {}, admin.token));
+  assert.equal(regs.length, vorher + e1.neu, 'neue Regionen angelegt');
+  const b85 = regs.find((r) => r.plz === '85*');
+  assert.equal(b85.name, '85 · Ingolstadt');
+  const b80 = regs.find((r) => r.plz === '80*');
+  assert.ok(b85.nachbarn.includes(b80.id) && b80.nachbarn.includes(b85.id), 'Nachbarn gegenseitig');
+  assert.equal(intern.regionFuerPlz_('85737'), muc, 'genauere vorhandene Region gewinnt');
+  assert.equal(intern.regionFuerPlz_('10115'), regs.find((r) => r.plz === '10*').id, 'Berlin über 10*');
+  assert.equal(intern.regionenNachPlzAnlegen_().neu, 0, 'zweites Ausführen legt nichts an');
+}
+
 console.log('Backend-Ablauftest: alles ok');

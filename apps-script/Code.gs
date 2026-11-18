@@ -187,6 +187,144 @@ function taeglich() {
   aufraeumen_();
 }
 
+// ---------------------------------------------------------------------
+// Einrichtung: Regionen nach den ersten zwei PLZ-Ziffern (Leitbereiche)
+// ---------------------------------------------------------------------
+// [Bereich, größte Stadt, angrenzende Bereiche] – Stadt = Ort mit den meisten PLZ im Bereich (GeoNames, CC BY 4.0),
+// Nachbarn aus der genäherten Bereichskarte berechnet. Namen lassen sich danach in der App ändern.
+var PLZ_BEREICHE = [
+  ['01', 'Dresden', '02,03,04,09'],
+  ['02', 'Görlitz', '01,03'],
+  ['03', 'Cottbus', '01,02,04,15'],
+  ['04', 'Leipzig', '01,03,06,07,08,09,14,15'],
+  ['06', 'Halle', '04,07,14,38,39,99'],
+  ['07', 'Gera', '04,06,08,95,96,98,99'],
+  ['08', 'Zwickau', '04,07,09,95'],
+  ['09', 'Chemnitz', '01,04,08'],
+  ['10', 'Berlin', '12,13,14'],
+  ['12', 'Berlin', '10,13,14,15,16'],
+  ['13', 'Berlin', '10,12,14,16'],
+  ['14', 'Potsdam', '04,06,10,12,13,15,16,39'],
+  ['15', 'Frankfurt (Oder)', '03,04,12,14,16'],
+  ['16', 'Oranienburg', '12,13,14,15,17,19,39'],
+  ['17', 'Greifswald', '16,18,19'],
+  ['18', 'Rostock', '17,19,23'],
+  ['19', 'Schwerin', '16,17,18,21,23,29,39'],
+  ['20', 'Hamburg', '21,22'],
+  ['21', 'Lüneburg', '19,20,22,23,25,27,29'],
+  ['22', 'Hamburg', '20,21,23,24,25'],
+  ['23', 'Lübeck', '18,19,21,22,24'],
+  ['24', 'Kiel', '22,23,25'],
+  ['25', 'Elmshorn', '21,22,24'],
+  ['26', 'Oldenburg', '27,28,49'],
+  ['27', 'Bremerhaven', '21,26,28,29,31,49'],
+  ['28', 'Bremen', '26,27'],
+  ['29', 'Celle', '19,21,27,30,31,38,39'],
+  ['30', 'Hannover', '29,31'],
+  ['31', 'Hildesheim', '27,29,30,32,37,38'],
+  ['32', 'Minden', '31,33,37,49'],
+  ['33', 'Bielefeld', '32,34,37,48,49,59'],
+  ['34', 'Kassel', '33,35,36,37,59'],
+  ['35', 'Wetzlar', '34,36,56,57,59,61,63,65'],
+  ['36', 'Fulda', '34,35,37,63,97,98,99'],
+  ['37', 'Göttingen', '31,32,33,34,36,38,99'],
+  ['38', 'Braunschweig', '06,29,31,37,39,99'],
+  ['39', 'Magdeburg', '06,14,16,19,29,38'],
+  ['40', 'Düsseldorf', '41,42,45,47,50,51'],
+  ['41', 'Mönchengladbach', '40,47,50,52'],
+  ['42', 'Wuppertal', '40,45,51,58'],
+  ['44', 'Dortmund', '45,58,59'],
+  ['45', 'Essen', '40,42,44,46,47,48,58,59'],
+  ['46', 'Oberhausen', '45,47,48'],
+  ['47', 'Duisburg', '40,41,45,46'],
+  ['48', 'Münster', '33,45,46,49,59'],
+  ['49', 'Osnabrück', '26,27,32,33,48'],
+  ['50', 'Köln', '40,41,51,52,53'],
+  ['51', 'Köln', '40,42,50,53,57,58'],
+  ['52', 'Aachen', '41,50,53'],
+  ['53', 'Bonn', '50,51,52,54,56,57'],
+  ['54', 'Trier', '53,55,56,66'],
+  ['55', 'Mainz', '54,56,64,65,66,67'],
+  ['56', 'Koblenz', '35,53,54,55,57,65'],
+  ['57', 'Siegen', '35,51,53,56,58,59'],
+  ['58', 'Hagen', '42,44,45,51,57,59'],
+  ['59', 'Hamm', '33,34,35,44,45,48,57,58'],
+  ['60', 'Frankfurt am Main', '61,63,64,65'],
+  ['61', 'Bad Homburg vor der Höhe', '35,60,63,65'],
+  ['63', 'Hanau', '35,36,60,61,64,69,74,97'],
+  ['64', 'Darmstadt', '55,60,63,65,67,68,69'],
+  ['65', 'Wiesbaden', '35,55,56,60,61,64'],
+  ['66', 'Saarbrücken', '54,55,67,76'],
+  ['67', 'Ludwigshafen am Rhein', '55,64,66,68,76'],
+  ['68', 'Mannheim', '64,67,69,76'],
+  ['69', 'Heidelberg', '63,64,68,74,76'],
+  ['70', 'Stuttgart', '71,72,73'],
+  ['71', 'Ludwigsburg', '70,72,73,74,75'],
+  ['72', 'Reutlingen', '70,71,73,75,76,77,78,88,89'],
+  ['73', 'Aalen', '70,71,72,74,86,89,91'],
+  ['74', 'Heilbronn', '63,69,71,73,75,76,91,97'],
+  ['75', 'Pforzheim', '71,72,74,76'],
+  ['76', 'Karlsruhe', '66,67,68,69,72,74,75,77'],
+  ['77', 'Offenburg', '72,76,78,79'],
+  ['78', 'Villingen-Schwenningen', '72,77,79,88'],
+  ['79', 'Freiburg im Breisgau', '77,78'],
+  ['80', 'München', '81,82,85'],
+  ['81', 'München', '80,82,85'],
+  ['82', 'Fürstenfeldbruck', '80,81,83,85,86,87'],
+  ['83', 'Rosenheim', '82,84,85'],
+  ['84', 'Landshut', '83,85,93,94'],
+  ['85', 'Ingolstadt', '80,81,82,83,84,86,91,92,93'],
+  ['86', 'Augsburg', '73,82,85,87,89,91'],
+  ['87', 'Kempten', '82,86,88,89'],
+  ['88', 'Friedrichshafen', '72,78,87,89'],
+  ['89', 'Ulm', '72,73,86,87,88'],
+  ['90', 'Nürnberg', '91,92'],
+  ['91', 'Erlangen', '73,74,85,86,90,92,95,96,97'],
+  ['92', 'Amberg', '85,90,91,93,95'],
+  ['93', 'Regensburg', '84,85,92,94'],
+  ['94', 'Passau', '84,93'],
+  ['95', 'Bayreuth', '07,08,91,92,96'],
+  ['96', 'Bamberg', '07,91,95,97,98'],
+  ['97', 'Würzburg', '36,63,74,91,96,98'],
+  ['98', 'Suhl', '07,36,96,97,99'],
+  ['99', 'Erfurt', '06,07,36,37,38,98']
+];
+
+/**
+ * Einmal im Editor ausführen: legt für jeden 2-stelligen PLZ-Bereich eine Region „85 · Ingolstadt“ (PLZ 85*) an
+ * und trägt die angrenzenden Bereiche als Nachbarregionen ein. Vorhandene Regionen bleiben unverändert; ein Bereich,
+ * für den es schon eine Region mit genau „NN*“ gibt, wird übersprungen. Erneutes Ausführen ist unschädlich.
+ */
+function regionenNachPlzAnlegen() {
+  var erg = regionenNachPlzAnlegen_();
+  console.log(erg.neu + ' Regionen angelegt, ' + erg.vorhanden + ' waren schon vorhanden.');
+  return erg;
+}
+
+function regionenNachPlzAnlegen_() {
+  var vorhanden = {};
+  regionenAlle_().forEach(function (r) {
+    var m = /^(\d\d)\*$/.exec(String(r.plz).trim());
+    if (m) vorhanden[m[1]] = r.id;
+  });
+  var ids = {}, neu = 0, alt = 0;
+  PLZ_BEREICHE.forEach(function (b) {
+    if (vorhanden[b[0]]) { ids[b[0]] = vorhanden[b[0]]; alt++; return; }
+    ids[b[0]] = regionSpeichern_({ name: b[0] + ' · ' + b[1], plz: b[0] + '*' }).id;
+    neu++;
+  });
+  // Nachbarn ergänzen (bestehende Nachbarn bleiben erhalten)
+  var alle = regionenAlle_();
+  PLZ_BEREICHE.forEach(function (b) {
+    var r = alle.filter(function (x) { return x.id === ids[b[0]]; })[0];
+    if (!r) return;
+    var nachbarn = r.nachbarn.slice();
+    b[2].split(',').forEach(function (n) { if (ids[n] && nachbarn.indexOf(ids[n]) < 0) nachbarn.push(ids[n]); });
+    regionSpeichern_({ id: r.id, name: r.name, plz: r.plz, nachbarn: nachbarn, aktiv: r.aktiv });
+  });
+  return { neu: neu, vorhanden: alt, gesamt: PLZ_BEREICHE.length };
+}
+
 /** Einmal im Editor ausführen: erteilt die Drive-Freigabe und legt den Foto-Ordner an */
 function fotoOrdnerEinrichten() {
   console.log('Foto-Ordner „SOS Hund – Fotos“: ' + fotoOrdner_());

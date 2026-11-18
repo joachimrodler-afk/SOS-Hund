@@ -237,7 +237,7 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
 
 /** Namen, die das Backend nach außen gibt (Aktionen + Trigger + Hilfsfunktionen für Tests/Demo) */
 const EXPORTE = ['doPost', 'setup', 'taeglich', 'alleFuenfMinuten', 'eskalieren_', 'anonymisieren_', 'mitgliedSchreiben_',
-  'regionSpeichern_', 'regionFuerPlz_', 'zeilen_', 'aktualisiereZeile_', 'zeileAnhaengen_', 'BLAETTER'];
+  'regionSpeichern_', 'regionFuerPlz_', 'zeilen_', 'aktualisiereZeile_', 'zeileAnhaengen_', 'regionenNachPlzAnlegen_', 'BLAETTER'];
 
 /**
  * Lädt den Text von Code.gs mit den nachgebildeten Diensten.
