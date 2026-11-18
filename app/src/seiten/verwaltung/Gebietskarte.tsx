@@ -38,6 +38,7 @@ const HELFER_STUFEN = [
   { ab: 1, farbe: '#93c5fd', text: '1–2' },
 ];
 const KEINE_HELFER = '#ef4444';
+const OHNE_LEITUNG = '#fdba74';
 const helferFarbe = (n: number) => HELFER_STUFEN.find((x) => n >= x.ab)?.farbe ?? KEINE_HELFER;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -141,12 +142,15 @@ function Inhalt() {
           };
         }
         const anteil = 1 - (w.anteile.get('') ?? 0) / w.gesamt;
+        const hauptMitLeitung = !!alle.find((x) => x.id === w.haupt)?.leiter?.length;
+        // Region mit Regionalleitung = ihre Farbe; ohne Leitung = hell-orange; teils/teils = orange gestrichelter Rand
+        const gemischt = hauptMitLeitung && w.ohneLeitung;
         return {
-          color: w.konflikte ? '#b91c1c' : w.ohneLeitung ? '#d97706' : '#ffffff',
-          weight: w.konflikte || w.ohneLeitung ? 2.5 : 1,
-          dashArray: w.konflikte || w.ohneLeitung ? '4 3' : undefined,
-          fillColor: w.haupt ? farbe.get(w.haupt) : FREI,
-          fillOpacity: w.haupt ? 0.25 + 0.5 * anteil : 0.25,
+          color: w.konflikte ? '#b91c1c' : gemischt ? '#d97706' : '#ffffff',
+          weight: w.konflikte || gemischt ? 2.5 : 1,
+          dashArray: w.konflikte || gemischt ? '4 3' : undefined,
+          fillColor: !w.haupt ? FREI : hauptMitLeitung ? farbe.get(w.haupt) : OHNE_LEITUNG,
+          fillOpacity: !w.haupt ? 0.25 : hauptMitLeitung ? 0.35 + 0.45 * anteil : 0.45,
         };
       },
       onEachFeature: (f, layer) => {
@@ -236,9 +240,8 @@ function Inhalt() {
 
       {modus === 'leiter' ? (
         <p className="text-xs text-slate-500">
-          Farbe = Region mit den meisten Postleitzahlen im Gebiet, kräftiger = größerer Teil des Gebiets ist einer Region zugeordnet.
-          Orange gestrichelt = Gebiet ohne Regionalleitung: dort gibt es eine Region, aber niemand leitet sie.
-          Grau = dort gibt es noch kein Netzwerk, Meldungen von dort erreichen niemand. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
+          Farbig = Gebiet mit Regionalleitung (jede Region eine eigene Farbe). Hell-orange = Gebiet ohne Regionalleitung, öffentliche Meldungen prüfen dort die Admins.
+          Orange gestrichelt = Gebiet teils mit, teils ohne Regionalleitung. Grau = dort gibt es noch kein Netzwerk. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
           Insgesamt haben {prozent(a.vergeben, a.gesamt)} % aller Postleitzahlen ein Netzwerk.
           Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
         </p>
@@ -253,7 +256,7 @@ function Inhalt() {
           </div>
           <p className="text-xs text-slate-500">
             Rot = Gebiet gehört zu einer Region, aber dort ist noch kein Helfer eingetragen. Grau = dort gibt es noch keine Region, Meldungen von dort erreichen niemand.
-            Zahl = Helfer, die für PLZ im Bereich zuständig sind (Mitglieder und Regionalleiter, jeder nur einmal gezählt). Gebiet antippen: mit genau einem Helfer geht es direkt zu seinem Profil, sonst erscheint eine Auswahl aller Helfer (grüner Punkt = einsatzbereit).
+            Zahl = Helfer, die für PLZ im Bereich zuständig sind (nur Mitglieder, jeder nur einmal gezählt – Regionalleiter zeigt die andere Ansicht). Gebiet antippen: mit genau einem Helfer geht es direkt zu seinem Profil, sonst erscheint eine Auswahl aller Helfer (grüner Punkt = einsatzbereit).
           </p>
         </div>
       )}

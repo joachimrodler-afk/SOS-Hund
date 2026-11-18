@@ -16,7 +16,7 @@ import { sicherSchreiben } from './api';
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle, sha256 } from './gasMock.js';
 
-const KEY = 'sos.demo.v6';
+const KEY = 'sos.demo.v7';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -58,7 +58,7 @@ function speichern() {
 }
 
 function laden() {
-  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); localStorage.removeItem('sos.demo.v4'); localStorage.removeItem('sos.demo.v5'); } catch { /* alte Demo-Daten */ }
+  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); localStorage.removeItem('sos.demo.v4'); localStorage.removeItem('sos.demo.v5'); localStorage.removeItem('sos.demo.v6'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -102,7 +102,7 @@ function vorMinuten(id: string, min: number, feld = 'erstellt') {
   });
 }
 
-/** Beispieldaten: 95 Regionen nach PLZ-Leitbereich, 20 weitere Regionalleiter, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
+/** Beispieldaten: 95 Regionen nach PLZ-Leitbereich, rund 20 % mit Regionalleitung, Helfer verteilt, fünf Zugänge, einige Anfragen in verschiedenen Zuständen */
 function beispieldaten() {
   const { aufruf, intern } = backend!;
   intern.setup();
@@ -129,18 +129,22 @@ function beispieldaten() {
   neu('Erik', 'Ebersberger', 'mitglied', [ebe], '555555', { telefon: '0173 5555555' });
   neu('Vera', 'Veterinär', 'behoerde', [muc], '444444', { organisation: 'Veterinäramt Freising', telefon: '089 6221-0', email: 'veterinaeramt@example.org' });
 
-  // 20 Regionalleiter in ganz Deutschland, je mit eigener Region (für die Deutschlandkarte)
-  const DEMO_REGIONEN: [string, string, string][] = [
-    ['20', 'Hanna', 'Hansen'], ['24', 'Kai', 'Kröger'], ['17', 'Ole', 'Ostermann'], ['10', 'Bettina', 'Brandt'],
-    ['28', 'Jan', 'Janssen'], ['30', 'Nina', 'Niemeyer'], ['39', 'Maik', 'Möller'], ['01', 'Doreen', 'Dietrich'],
-    ['04', 'Lars', 'Lehmann'], ['48', 'Greta', 'Hölscher'], ['44', 'Dennis', 'Kowalski'], ['50', 'Sabine', 'Krämer'],
-    ['34', 'Tobias', 'Kessler'], ['99', 'Ines', 'Engel'], ['60', 'Felix', 'Fischer'], ['66', 'Sophie', 'Schmitt'],
-    ['70', 'Stefan', 'Schwab'], ['79', 'Franziska', 'Faller'], ['90', 'Norbert', 'Neubauer'], ['93', 'Rosa', 'Reindl'],
+  // Verteilung für die Deutschlandkarte: rund 20 % der 95 Regionen mit Regionalleitung (Rita in 85 + 18 weitere),
+  // davon einige ohne Helfer; dazu einige Regionen nur mit Helfern ohne Regionalleitung.
+  // [Bereich, Vorname, Nachname der Regionalleitung oder '', Zahl der Helfer]
+  const DEMO_VERTEILUNG: [string, string, string, number][] = [
+    ['20', 'Hanna', 'Hansen', 9], ['24', 'Kai', 'Kröger', 5], ['10', 'Bettina', 'Brandt', 14], ['28', 'Jan', 'Janssen', 4],
+    ['30', 'Nina', 'Niemeyer', 6], ['39', 'Maik', 'Möller', 3], ['01', 'Doreen', 'Dietrich', 7], ['04', 'Lars', 'Lehmann', 5],
+    ['48', 'Greta', 'Hölscher', 8], ['44', 'Dennis', 'Kowalski', 11], ['50', 'Sabine', 'Krämer', 9], ['60', 'Felix', 'Fischer', 10],
+    ['70', 'Stefan', 'Schwab', 12], ['90', 'Norbert', 'Neubauer', 6],
+    // nur Regionalleitung, noch keine Helfer
+    ['17', 'Ole', 'Ostermann', 0], ['34', 'Tobias', 'Kessler', 0], ['99', 'Ines', 'Engel', 0], ['79', 'Franziska', 'Faller', 0],
+    // nur Helfer, keine Regionalleitung
+    ['93', '', '', 5], ['66', '', '', 3], ['89', '', '', 4], ['26', '', '', 2], ['55', '', '', 3],
   ];
-  // Dazu Helfer ohne Anmeldung (nur für die Helfer-Karte): unterschiedlich viele je Region, einige nicht einsatzbereit
+  // Helfer ohne Anmeldung (nur für die Karten): einige nicht einsatzbereit
   const VORNAMEN = ['Anna', 'Ben', 'Clara', 'David', 'Eva', 'Finn', 'Gabi', 'Hannes', 'Ida', 'Jonas', 'Kerstin', 'Lukas', 'Marie', 'Nils', 'Paula', 'Robert'];
   const NACHNAMEN = ['Bauer', 'Becker', 'Hoffmann', 'Koch', 'Lang', 'Meyer', 'Neumann', 'Richter', 'Schulz', 'Vogel', 'Weber', 'Wolf'];
-  const HELFER_JE_REGION = [9, 4, 0, 14, 3, 6, 1, 5, 2, 7, 11, 8, 0, 2, 10, 1, 12, 3, 6, 4];
   let nr = 0;
   const helferDazu = (regionId: string, anzahl: number) => {
     for (let k = 0; k < anzahl; k++, nr++) {
@@ -148,11 +152,12 @@ function beispieldaten() {
         "'0160 " + String(5000000 + nr), '', '', '', '', 'true', nr % 4 === 3 ? 'false' : 'true', '{}', new Date().toISOString(), '']);
     }
   };
-  DEMO_REGIONEN.forEach(([b, vorname, nachname], i) => {
+  DEMO_VERTEILUNG.forEach(([b, vorname, nachname, helfer], i) => {
     const id = bereich(b);
-    neu(vorname, nachname, 'regionalleiter', [id], String(700000 + i), { telefon: `0151 ${String(4000000 + i * 1111)}` });
-    helferDazu(id, HELFER_JE_REGION[i]);
+    if (vorname) neu(vorname, nachname, 'regionalleiter', [id], String(700000 + i), { telefon: `0151 ${String(4000000 + i * 1111)}` });
+    helferDazu(id, helfer);
   });
+  helferDazu(muc, 4); // 85: zu Max und Mia noch einige Helfer
 
   const login = (name: string, pin: string) => ok<{ token: string }>(aufruf('login', { name, pin })).token;
   const vera = login('Vera Veterinär', '444444');
