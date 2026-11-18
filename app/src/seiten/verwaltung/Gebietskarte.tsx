@@ -102,6 +102,7 @@ function Inhalt() {
       bereitGesamt: new Set(aktive.flatMap((x) => x.bereitIds ?? [])).size,
       ohneHelfer: werte.filter((w) => w.haupt && !w.helfer.size).length,
       ohneRegion: werte.filter((w) => !w.haupt).length,
+      ohneLeitungGebiete: werte.filter((w) => w.haupt && w.ohneLeitung).length,
       voll: werte.filter((w) => !w.anteile.get('')).length,
       teil: werte.filter((w) => w.anteile.get('') && w.anteile.get('')! < w.gesamt).length,
       frei: werte.filter((w) => w.anteile.get('') === w.gesamt).length,
@@ -210,17 +211,17 @@ function Inhalt() {
   const kachel = (zahl: React.ReactNode, text: string, rot = false) => (
     <div className="karte p-3"><p className={`text-2xl font-bold ${rot ? 'text-sos-rot' : 'text-himmel-800 dark:text-himmel-200'}`}>{zahl}</p><p className="text-xs text-slate-500">{text}</p></div>
   );
-  const ohneLeitung = alle.filter((r) => r.aktiv !== false && !r.leiter?.length).length;
   const nachHelfern = [...alle].sort((x, y) => (y.helferIds?.length ?? 0) - (x.helferIds?.length ?? 0));
 
   return (
     <div className="space-y-4">
       {umschalter}
       {modus === 'leiter' ? (
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {kachel(`${prozent(a.vergeben, a.gesamt)} %`, 'der PLZ vergeben')}
-          {kachel(<>{a.voll}<span className="text-base font-normal text-slate-500"> / {a.teil}</span></>, 'Bereiche ganz / teilweise')}
-          {kachel(ohneLeitung, 'Regionen ohne Leitung', ohneLeitung > 0)}
+        <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+          {kachel(alle.filter((r) => r.aktiv !== false).length, 'Regionen')}
+          {kachel(new Set(alle.filter((r) => r.aktiv !== false).flatMap((r) => r.leiterIds ?? [])).size, 'Regionalleiter')}
+          <div className="karte p-3"><p className={`text-2xl font-bold ${a.ohneLeitungGebiete ? 'text-amber-600' : 'text-himmel-800 dark:text-himmel-200'}`}>{a.ohneLeitungGebiete}</p><p className="text-xs text-slate-500">Gebiete ohne Regionalleitung</p></div>
+          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Gebiete noch ohne Netzwerk</p></div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
@@ -235,8 +236,10 @@ function Inhalt() {
 
       {modus === 'leiter' ? (
         <p className="text-xs text-slate-500">
-          Farbe = Region mit den meisten PLZ im Bereich, kräftiger = höherer Anteil vergeben, grau = frei.
-          Orange gestrichelt = eine Region im Bereich hat keine Regionalleitung, rot gestrichelt = Überschneidung.
+          Farbe = Region mit den meisten Postleitzahlen im Gebiet, kräftiger = größerer Teil des Gebiets ist einer Region zugeordnet.
+          Orange gestrichelt = Gebiet ohne Regionalleitung: dort gibt es eine Region, aber niemand leitet sie.
+          Grau = dort gibt es noch kein Netzwerk, Meldungen von dort erreichen niemand. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
+          Insgesamt haben {prozent(a.vergeben, a.gesamt)} % aller Postleitzahlen ein Netzwerk.
           Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
         </p>
       ) : (
