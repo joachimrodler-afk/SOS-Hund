@@ -12,16 +12,27 @@ for (const t of ['', 'abc', 'äöü – SOS Hund', 'x'.repeat(200)]) {
 
 const code = fs.readFileSync(new URL('../Code.gs', import.meta.url), 'utf8');
 const tabelle = neueTabelle();
-const props = { SHEET_ID: 'x', ERSTER_ADMIN: 'Ada;Admin;654321', FCM_SERVICE_ACCOUNT: JSON.stringify({ project_id: 'p', client_email: 'a@b', private_key: 'k' }) };
+const props = { MELDE_MINDESTZEIT: '0', SHEET_ID: 'x', ERSTER_ADMIN: 'Ada;Admin;654321', FCM_SERVICE_ACCOUNT: JSON.stringify({ project_id: 'p', client_email: 'a@b', private_key: 'k' }) };
 const mails = [];
 const pushes = [];
 const dateien = {};
-const dienste = gasDienste({ tabelle, props, mails, pushes, dateien, geocoder: (t) => (t.includes('85737') ? { lat: 48.22, lon: 11.68 } : null) });
+const cache = {};
+const dienste = gasDienste({ tabelle, props, mails, pushes, dateien, cache, geocoder: (t) => (t.includes('85737') ? { lat: 48.22, lon: 11.68 } : null) });
 dienste.Utilities.computeRsaSha256Signature = () => [1, 2, 3];
 const { aufruf, intern } = backendLaden(code, dienste);
 
 const ok = (r) => { assert.ok(r.ok, r.fehler); return r.daten; };
 const nein = (r, text) => { assert.equal(r.ok, false, text); return r; };
+/** Rechenaufgabe des Meldeformulars lösen wie der Browser */
+const loesen = (a) => {
+  for (let n = 0; n <= a.maxnumber; n++) if (crypto.createHash('sha256').update(a.salt + n).digest('hex') === a.challenge) return { ...a, number: n };
+  throw new Error('nicht lösbar');
+};
+/** Öffentliche Meldung mit gelöster Aufgabe; Mehrfach-Sperren (gleicher Text, gleiche Nummer) für Tests zurücksetzen */
+const melden = (d, { frisch = true, aufgabe } = {}) => {
+  if (frisch) Object.keys(cache).filter((k) => /^meld(tel|gl)_|^meldungen$|^leitpush_/.test(k)).forEach((k) => delete cache[k]);
+  return aufruf('melden', { ...d, aufgabe: aufgabe ?? loesen(ok(aufruf('melden_aufgabe', {}))) });
+};
 const pushText = () => pushes.filter((p) => p.url.includes('fcm')).map((p) => JSON.parse(p.o.payload).message);
 const pushAn = (token) => pushText().filter((m) => m.token === token);
 
@@ -179,10 +190,10 @@ assert.equal(ok(aufruf('anfragen_liste', {}, max.token)).length, 0, 'aktiv-Liste
 assert.equal(ok(aufruf('anfragen_liste', { filter: 'erledigt' }, max.token)).length, 1);
 
 // ---------------------------------------------------------------- Öffentliche Meldung
-nein(aufruf('melden', { ...anfrage, datenschutz: false }), 'Datenschutz');
-assert.deepEqual(ok(aufruf('melden', { ...anfrage, website: 'spam' })), { ok: true }, 'Honigtopf');
+nein(melden({ ...anfrage, datenschutz: false }), 'Datenschutz');
+assert.deepEqual(ok(melden({ ...anfrage, website: 'spam' })), { ok: true }, 'Honigtopf');
 pushes.length = 0;
-const m = ok(aufruf('melden', { ...anfrage, dringlichkeit: 'akut', beschreibung: 'Streunender Hund am Spielplatz', adresse: { strasse: '', plz: '85748', ort: 'Garching' }, auftraggeber: { name: 'Petra Passant', telefon: '0151 2' }, datenschutz: true }));
+const m = ok(melden({ ...anfrage, dringlichkeit: 'akut', beschreibung: 'Streunender Hund am Spielplatz', adresse: { strasse: '', plz: '85748', ort: 'Garching' }, auftraggeber: { name: 'Petra Passant', telefon: '0151 2222222' }, datenschutz: true }));
 assert.match(m.nummer, /0002$/);
 assert.equal(pushAn('T-max').length, 0, 'ungeprüft: noch kein Push an Helfer');
 assert.equal(pushAn('T-rita').length, 1, 'Regionalleitung wird informiert');
@@ -216,28 +227,28 @@ assert.equal(wieder.status, 'offen');
 assert.equal(wieder.eskaliert, false, 'Eskalation beginnt neu');
 
 // ---------------------------------------------------------------- Melder ist Hundehalter
-nein(aufruf('melden', { ...anfrage, adresse: { plz: '85737', ort: 'Ismaning' }, auftraggeber: { istHalter: true }, datenschutz: true }), 'Halter ohne Name/Telefon');
-const mh = ok(aufruf('melden', { ...anfrage, beschreibung: 'Mein Hund ist weggelaufen', adresse: { strasse: 'Lindenweg 3', plz: '85737', ort: 'Ismaning', halter: 'Hans Halter', halterTelefon: '0170 5', halterEmail: 'hans@example.org' }, auftraggeber: { name: '', telefon: '', istHalter: true }, datenschutz: true }));
+nein(melden({ ...anfrage, adresse: { plz: '85737', ort: 'Ismaning' }, auftraggeber: { istHalter: true }, datenschutz: true }), 'Halter ohne Name/Telefon');
+const mh = ok(melden({ ...anfrage, beschreibung: 'Mein Hund ist weggelaufen', adresse: { strasse: 'Lindenweg 3', plz: '85737', ort: 'Ismaning', halter: 'Hans Halter', halterTelefon: '0170 5555555', halterEmail: 'hans@example.org' }, auftraggeber: { name: '', telefon: '', istHalter: true }, datenschutz: true }));
 const mhId = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === mh.nummer).id;
 const mhDet = ok(aufruf('anfrage_detail', { id: mhId }, rita.token));
 assert.equal(mhDet.details.auftraggeber.istHalter, true);
 assert.equal(mhDet.details.adresse.halter, 'Hans Halter', 'Halter = Melder');
 assert.equal(mhDet.details.auftraggeber.name, 'Hans Halter', 'Name nach unten übernommen');
-assert.equal(mhDet.details.auftraggeber.telefon, '0170 5', 'Telefon nach unten übernommen');
+assert.equal(mhDet.details.auftraggeber.telefon, '0170 5555555', 'Telefon nach unten übernommen');
 assert.equal(mhDet.details.auftraggeber.email, 'hans@example.org', 'E-Mail nach unten übernommen');
-assert.equal(mhDet.details.adresse.halterTelefon, '0170 5');
+assert.equal(mhDet.details.adresse.halterTelefon, '0170 5555555');
 assert.equal(mhDet.details.auftraggeber.strasse, 'Lindenweg 3', 'Straße nach unten übernommen');
 assert.equal(mhDet.details.auftraggeber.plz, '85737', 'PLZ nach unten übernommen');
 assert.equal(mhDet.details.auftraggeber.ort, 'Ismaning', 'Ort nach unten übernommen');
-nein(aufruf('melden', { ...anfrage, auftraggeber: { name: 'X', telefon: '1', plz: '12' }, datenschutz: true }), 'PLZ Auftraggeber prüfen');
+nein(melden({ ...anfrage, auftraggeber: { name: 'X', telefon: '1', plz: '12' }, datenschutz: true }), 'PLZ Auftraggeber prüfen');
 ok(aufruf('anfrage_pruefen', { id: mhId, freigeben: false }, rita.token));
 
 // ---------------------------------------------------------------- Fotos
 const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex').toString('base64');
-nein(aufruf('melden', { ...anfrage, fotos: [{ mime: 'text/plain', data: PNG }], datenschutz: true }), 'nur Bilder');
-nein(aufruf('melden', { ...anfrage, fotos: Array(6).fill({ mime: 'image/png', data: PNG }), datenschutz: true }), 'höchstens 5');
-nein(aufruf('melden', { ...anfrage, fotos: [{ mime: 'image/jpeg', data: '###' }], datenschutz: true }), 'kaputtes Base64');
-const mf = ok(aufruf('melden', { ...anfrage, beschreibung: 'Hund mit Foto', fotos: [{ mime: 'image/png', data: PNG }, { mime: 'image/jpeg', data: PNG }], datenschutz: true }));
+nein(melden({ ...anfrage, fotos: [{ mime: 'text/plain', data: PNG }], datenschutz: true }), 'nur Bilder');
+nein(melden({ ...anfrage, fotos: Array(6).fill({ mime: 'image/png', data: PNG }), datenschutz: true }), 'höchstens 5');
+nein(melden({ ...anfrage, fotos: [{ mime: 'image/jpeg', data: '###' }], datenschutz: true }), 'kaputtes Base64');
+const mf = ok(melden({ ...anfrage, beschreibung: 'Hund mit Foto', fotos: [{ mime: 'image/png', data: PNG }, { mime: 'image/jpeg', data: PNG }], datenschutz: true }));
 const mfId = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === mf.nummer).id;
 assert.equal(ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.id === mfId).fotos, 2, 'Fotoanzahl in der Liste');
 assert.ok(props.FOTO_ORDNER_ID, 'Foto-Ordner angelegt');
@@ -257,7 +268,7 @@ assert.equal(ok(aufruf('anfrage_fotos', { id: mfId }, rita.token)).length, 0, 'F
 assert.ok(Object.values(dateien).every((f) => f.papierkorb), 'Fotos im Papierkorb');
 
 // ---------------------------------------------------------------- Meldung verwerfen
-const m2 = ok(aufruf('melden', { ...anfrage, beschreibung: 'Test', auftraggeber: { name: 'X', telefon: '1' }, datenschutz: true }));
+const m2 = ok(melden({ ...anfrage, beschreibung: 'Test', auftraggeber: { name: 'X', telefon: '0171 1111111' }, datenschutz: true }));
 const m2id = ok(aufruf('anfragen_liste', {}, rita.token)).find((x) => x.nummer === m2.nummer).id;
 assert.equal(ok(aufruf('anfrage_pruefen', { id: m2id, freigeben: false, notiz: 'Doppelt' }, rita.token)).status, 'verworfen');
 
@@ -314,5 +325,53 @@ assert.equal(intern.anonymisieren_(), 0, 'nur einmal');
 // Protokoll
 assert.ok(ok(aufruf('protokoll', {}, admin.token)).some((p) => p.aktion === 'angesehen'));
 nein(aufruf('protokoll', {}, rita.token), 'Protokoll nur Admins');
+
+// ---------------------------------------------------------------- Schutz des Meldeformulars
+{
+  const basis = { ...anfrage, datenschutz: true };
+  const zahl = () => tabelle.blaetter.Anfragen.rows.length;
+  nein(aufruf('melden', { ...basis, beschreibung: 'ohne Aufgabe' }), 'Aufgabe fehlt');
+  const auf = ok(aufruf('melden_aufgabe', {}));
+  assert.equal(auf.algorithm, 'SHA-256');
+  nein(melden({ ...basis, beschreibung: 'falsche Zahl' }, { aufgabe: { ...loesen(auf), number: -1 } }), 'falsche Lösung');
+  nein(melden({ ...basis, beschreibung: 'falsche Signatur' }, { aufgabe: { ...loesen(auf), signature: 'ab' } }), 'falsche Signatur');
+  const geloest = loesen(auf);
+  ok(melden({ ...basis, beschreibung: 'Einmal gültig', auftraggeber: { name: 'A', telefon: '0160 1000001' } }, { aufgabe: geloest }));
+  assert.equal(nein(melden({ ...basis, beschreibung: 'Zweimal', auftraggeber: { name: 'A', telefon: '0160 1000002' } }, { aufgabe: geloest })).status, 409, 'Aufgabe nur einmal');
+  props.MELDE_MINDESTZEIT = '60';
+  nein(melden({ ...basis, beschreibung: 'Zu schnell' }), 'Mindestzeit');
+  props.MELDE_MINDESTZEIT = '0';
+  nein(melden({ ...basis, beschreibung: 'Berlin', adresse: { plz: '10115', ort: 'Berlin' } }), 'PLZ ohne Region');
+  nein(melden({ ...basis, beschreibung: 'Kurze Nummer', auftraggeber: { name: 'A', telefon: '123' } }), 'Telefon zu kurz');
+  // gleiche Meldung zweimal
+  ok(melden({ ...basis, beschreibung: 'Doppelt gemeldet', auftraggeber: { name: 'B', telefon: '0160 2000001' } }));
+  assert.equal(nein(melden({ ...basis, beschreibung: 'Doppelt  GEMELDET', auftraggeber: { name: 'C', telefon: '0160 2000002' } }, { frisch: false })).status, 409, 'Dublette');
+  // höchstens 3 je Telefonnummer
+  for (const i of [1, 2, 3]) ok(melden({ ...basis, beschreibung: 'Nummer ' + i, auftraggeber: { name: 'D', telefon: '0160 3000000' } }, { frisch: i === 1 }));
+  assert.equal(nein(melden({ ...basis, beschreibung: 'Nummer 4', auftraggeber: { name: 'D', telefon: '0160 3000000' } }, { frisch: false })).status, 429, 'max 3 je Nummer');
+  // Sammel-Push: zweite Meldung in 10 Minuten löst keinen weiteren Push an die Leitung aus
+  const vorher = pushAn('T-rita').length;
+  delete cache['leitpush_' + muc];
+  ok(melden({ ...basis, beschreibung: 'Flut 1', auftraggeber: { name: 'E', telefon: '0160 4000001' } }));
+  ok(melden({ ...basis, beschreibung: 'Flut 2', auftraggeber: { name: 'E', telefon: '0160 4000002' } }, { frisch: false }));
+  assert.equal(pushAn('T-rita').length - vorher, 1, 'Sammel-Push: nur eine Push-Nachricht');
+  // Notschalter
+  ok(aufruf('einstellungen_speichern', { meldenAktiv: false }, admin.token));
+  assert.equal(ok(aufruf('einstellungen', {})).meldenAktiv, false, 'öffentlich sichtbar');
+  assert.equal(nein(melden({ ...basis, beschreibung: 'Schalter aus' })).status, 503, 'Notschalter');
+  ok(aufruf('einstellungen_speichern', { meldenAktiv: true }, admin.token));
+  // Massen-Verwerfen mit Sperre
+  const vorSperre = ok(aufruf('anfragen_liste', { filter: 'alle' }, rita.token)).filter((x) => x.status === 'ungeprueft').length;
+  assert.ok(vorSperre >= 3);
+  const v = ok(aufruf('meldungen_verwerfen', { alle: true, sperren: true }, rita.token));
+  assert.equal(v.verworfen, vorSperre, 'alle ungeprüften verworfen');
+  assert.ok(v.gesperrt >= 3, 'Nummern gesperrt');
+  assert.ok(ok(aufruf('einstellungen', {}, admin.token)).gesperrteNummern.includes('01603000000'), 'Sperrliste');
+  const z = zahl();
+  assert.deepEqual(ok(melden({ ...basis, beschreibung: 'Gesperrt', auftraggeber: { name: 'D', telefon: '0160-300 0000' } })), { ok: true }, 'gesperrt: still verworfen');
+  assert.equal(zahl(), z, 'nichts gespeichert');
+  nein(aufruf('meldungen_verwerfen', { alle: true }, vet.token), 'Behörde darf nicht verwerfen');
+  ok(aufruf('einstellungen_speichern', { gesperrteNummern: [] }, admin.token));
+}
 
 console.log('Backend-Ablauftest: alles ok');

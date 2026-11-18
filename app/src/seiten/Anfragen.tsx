@@ -35,6 +35,18 @@ function Inhalt() {
   const ungelesen = start.daten?.nachrichten ?? 0;
   const liste = (daten ?? []).filter((a) => !nurMeine || a.meine);
   const pruefen = liste.filter((a) => a.status === 'ungeprueft');
+
+  async function alleVerwerfen(n: number) {
+    if (!confirm(`Alle ${n} ungeprüften Meldungen verwerfen? Das ist für Spam gedacht – echte Meldungen bitte einzeln prüfen.`)) return;
+    const sperren = confirm('Zusätzlich die Telefonnummern der Melder sperren? Weitere Meldungen von diesen Nummern werden dann still verworfen.');
+    try {
+      const r = await api<{ verworfen: number; gesperrt: number }>('meldungen_verwerfen', { ids: pruefen.map((a) => a.id), sperren, notiz: 'Sammelweise verworfen' });
+      alert(`${r.verworfen} Meldung${r.verworfen === 1 ? '' : 'en'} verworfen${r.gesperrt ? `, ${r.gesperrt} Nummer${r.gesperrt === 1 ? '' : 'n'} gesperrt` : ''}.`);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+    await neu();
+  }
   const rest = liste.filter((a) => a.status !== 'ungeprueft');
 
   return (
@@ -75,7 +87,10 @@ function Inhalt() {
         <>
           {istLeitung(s) && pruefen.length > 0 && (
             <section className="space-y-2">
-              <h2 className="font-bold text-amber-800 dark:text-amber-300">Öffentliche Meldungen prüfen ({pruefen.length})</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-bold text-amber-800 dark:text-amber-300">Öffentliche Meldungen prüfen ({pruefen.length})</h2>
+                {pruefen.length > 1 && <button type="button" className="rounded-lg px-2 py-1 text-sm font-semibold text-sos-rot underline" onClick={() => void alleVerwerfen(pruefen.length)}>Alle verwerfen</button>}
+              </div>
               {pruefen.map((a) => <AnfrageZeile key={a.id} a={a} />)}
             </section>
           )}

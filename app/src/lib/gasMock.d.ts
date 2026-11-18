@@ -1,6 +1,7 @@
 /* Typen für die Apps-Script-Nachbildung (gasMock.js) */
 type Zeile = Record<string, unknown>;
-export function sha256(text: string): number[];
+export function sha256(text: string | ArrayLike<number>): number[];
+export function hmacSha256(wert: string, schluessel: string): number[];
 export function neueTabelle(zustand?: Record<string, unknown[][]>): unknown;
 export function gasDienste(o: {
   tabelle: unknown;
@@ -9,6 +10,7 @@ export function gasDienste(o: {
   mails?: unknown[];
   pushes?: unknown[];
   dateien?: Record<string, { name: string; mime: string; data: string; ordner: string; papierkorb?: boolean }>;
+  cache?: Record<string, string>;
 }): Record<string, unknown>;
 export function backendLaden(
   code: string,

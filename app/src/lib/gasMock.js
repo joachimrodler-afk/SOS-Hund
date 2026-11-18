@@ -19,8 +19,19 @@ const K = new Uint32Array([
 ]);
 
 /** SHA-256 eines UTF-8-Texts, Ergebnis als Byte-Array (0–255) */
+/** HMAC-SHA256 (für Utilities.computeHmacSha256Signature), liefert Bytes 0–255 */
+export function hmacSha256(wert, schluessel) {
+  let k = new TextEncoder().encode(String(schluessel));
+  if (k.length > 64) k = Uint8Array.from(sha256(k));
+  const block = new Uint8Array(64); block.set(k);
+  const innen = Uint8Array.from(block, (b) => b ^ 0x36), aussen = Uint8Array.from(block, (b) => b ^ 0x5c);
+  const msg = new TextEncoder().encode(String(wert));
+  const h1 = sha256([...innen, ...msg]);
+  return sha256([...aussen, ...h1]);
+}
+
 export function sha256(text) {
-  const daten = new TextEncoder().encode(String(text));
+  const daten = typeof text === 'string' || typeof text === 'number' ? new TextEncoder().encode(String(text)) : Uint8Array.from(text);
   const laenge = daten.length;
   const bloecke = Math.ceil((laenge + 9) / 64);
   const m = new Uint8Array(bloecke * 64);
@@ -136,8 +147,7 @@ export function neueTabelle(zustand = {}) {
  * optionen: { tabelle, props, geocoder(text) -> {lat,lon}|null, mails: [], pushes: [], dateien: {} }
  * dateien = Ablage der „Drive“-Dateien: { [id]: { name, mime, data (Base64), ordner, papierkorb } }
  */
-export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes = [], dateien = {} }) {
-  const cache = {};
+export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes = [], dateien = {}, cache = {} }) {
   const blob = (bytes, mime, name) => ({
     getBytes: () => bytes, getContentType: () => mime, getName: () => name,
   });
@@ -187,6 +197,7 @@ export function gasDienste({ tabelle, props = {}, geocoder, mails = [], pushes =
     Utilities: {
       getUuid: uuid,
       computeDigest: (_alg, s) => sha256(s).map((b) => (b > 127 ? b - 256 : b)),
+      computeHmacSha256Signature: (wert, schluessel) => hmacSha256(wert, schluessel).map((b) => (b > 127 ? b - 256 : b)),
       base64Encode: (b) => base64(b.map((x) => (x + 256) % 256)),
       base64Decode: (t) => base64Bytes(t),
       newBlob: (bytes, mime, name) => blob(bytes, mime, name),

@@ -44,6 +44,18 @@ function Inhalt() {
         </Feld>
       </div>
       <div className="karte space-y-3 p-4">
+        <h2 className="font-bold">Öffentliches Meldeformular</h2>
+        <div className="-mx-4 border-y border-himmel-100 dark:border-slate-700">
+          <Schalter an={e.meldenAktiv !== false} onChange={(v) => setze({ meldenAktiv: v })} label="„Hund melden“ ohne Anmeldung erlauben"
+            text="Notschalter bei Missbrauch: aus = statt des Formulars erscheinen Notruf und Notfall-Kontakte" />
+        </div>
+        <Feld label="Gesperrte Telefonnummern" hilfe="Eine Nummer pro Zeile. Meldungen von diesen Nummern werden still verworfen. Beim Verwerfen einer Meldung kann die Regionalleitung Nummern hier eintragen lassen.">
+          <textarea className="eingabe min-h-24 font-mono text-sm" value={(e.gesperrteNummern ?? []).join('\n')}
+            onChange={(x) => setze({ gesperrteNummern: x.target.value.split('\n') })} placeholder="z. B. 01511234567" />
+        </Feld>
+        <p className="text-xs text-slate-500">Immer aktiv: unsichtbare Rechenaufgabe gegen Bots, PLZ muss zu einer Region gehören, höchstens 3 Meldungen je Telefonnummer in 6 Stunden, gleiche Meldungen werden abgewiesen, Push an die Regionalleitung höchstens alle 10 Minuten.</p>
+      </div>
+      <div className="karte space-y-3 p-4">
         <h2 className="font-bold">Eskalation</h2>
         <div className="-mx-4 border-y border-himmel-100 dark:border-slate-700">
           <Schalter an={!!e.eskalationAktiv} onChange={(v) => setze({ eskalationAktiv: v })} label="Nachbarregionen benachrichtigen" text="wenn eine Anfrage nicht rechtzeitig übernommen wird" />

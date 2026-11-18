@@ -53,6 +53,7 @@ function Inhalt({ id }: { id: string }) {
       if (r.verlauf) setDaten(r); else await neu();
       setNotiz('');
       if (aufruf === 'anfrage_uebernehmen') setMeldung('Du hast die Anfrage übernommen. Bitte jetzt den Auftraggeber anrufen und dich abstimmen.');
+      if (aufruf === 'meldungen_verwerfen') setMeldung('Meldung verworfen, Telefonnummer gesperrt.');
       if (aufruf === 'anfrage_pruefen') setMeldung(daten.freigeben ? `Freigegeben – ${r.benachrichtigt ?? 0} Helfer benachrichtigt.` : 'Meldung verworfen.');
     } catch (e) {
       setFehler2((e as Error).message);
@@ -110,6 +111,12 @@ function Inhalt({ id }: { id: string }) {
               <Knopf art="gefahr" laedt={arbeitet === 'verwerfen'} onClick={() => aktion('verwerfen', 'anfrage_pruefen', { freigeben: false, notiz: prompt('Grund (optional):') ?? '' })}>Verwerfen</Knopf>
               <Knopf laedt={arbeitet === 'freigeben'} disabled={!a.region} onClick={() => aktion('freigeben', 'anfrage_pruefen', { freigeben: true })}><Icon name="haken" className="h-5 w-5" /> Freigeben</Knopf>
             </div>
+            {a.quelle === 'oeffentlich' && (
+              <Knopf art="leise" className="w-full" laedt={arbeitet === 'sperren'}
+                onClick={() => aktion('sperren', 'meldungen_verwerfen', { ids: [a.id], sperren: true, notiz: 'Missbrauch' }, 'Meldung verwerfen und die Telefonnummer des Melders sperren? Weitere Meldungen von dieser Nummer werden dann still verworfen.')}>
+                Verwerfen und Nummer sperren
+              </Knopf>
+            )}
           </div>
         )}
         {a.rechte.uebernehmen && (

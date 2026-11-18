@@ -106,6 +106,7 @@ var AKTIONEN = {
   einstellungen: { recht: 'offen', fn: function (d, s) { return einstellungenFuer_(s); } },
   regionen: { recht: 'offen', fn: regionenOeffentlich_ },
   melden: { recht: 'offen', fn: melden_ },
+  melden_aufgabe: { recht: 'offen', fn: meldeAufgabe_ },
   einladung_pruefen: { recht: 'offen', fn: einladungPruefen_ },
   registrieren: { recht: 'offen', fn: registrieren_ },
   // Anfragen
@@ -119,6 +120,7 @@ var AKTIONEN = {
   anfrage_helfen: { recht: 'helfer', fn: anfrageHelfen_ },
   anfrage_status: { recht: 'angemeldet', fn: anfrageStatus_ },
   anfrage_pruefen: { recht: 'leitung', fn: anfragePruefen_ },
+  meldungen_verwerfen: { recht: 'leitung', fn: meldungenVerwerfen_ },
   export: { recht: 'angemeldet', fn: export_ },
   // Verwaltung
   einladungen_liste: { recht: 'leitung', fn: einladungenListe_ },
@@ -765,8 +767,10 @@ var STANDARD_EINSTELLUNGEN = {
   eskalationAkutMin: 10,
   anonymMonate: 12,
   auftraggeberMail: true,
+  meldenAktiv: true, // Notschalter: öffentliches Meldeformular an/aus
+  gesperrteNummern: [], // Telefonnummern (nur Ziffern), deren Meldungen still verworfen werden
 };
-var OEFFENTLICHE_EINSTELLUNGEN = ['netzwerkName', 'info', 'notfall', 'datenschutz', 'anonymMonate'];
+var OEFFENTLICHE_EINSTELLUNGEN = ['netzwerkName', 'info', 'notfall', 'datenschutz', 'anonymMonate', 'meldenAktiv'];
 
 function einstellungenLesen_() {
   var erg = JSON.parse(JSON.stringify(STANDARD_EINSTELLUNGEN));
@@ -785,6 +789,12 @@ function einstellungenFuer_(s) {
 }
 
 function einstellungenSpeichern_(d) {
+  if (d.gesperrteNummern !== undefined) {
+    var liste = (Array.isArray(d.gesperrteNummern) ? d.gesperrteNummern : String(d.gesperrteNummern).split(/[\n,;]+/))
+      .map(nurZiffern_).filter(function (t) { return t.length >= 6; });
+    d.gesperrteNummern = liste.filter(function (t, i) { return liste.indexOf(t) === i; });
+  }
+  if (d.meldenAktiv !== undefined) d.meldenAktiv = d.meldenAktiv !== false;
   mitSperre_(function () {
     Object.keys(STANDARD_EINSTELLUNGEN).forEach(function (k) {
       if (d[k] === undefined) return;
@@ -1002,18 +1012,139 @@ function anfrageAnlegen_(d, s) {
   return erg;
 }
 
+// ---------------------------------------------------------------------
+// Schutz des öffentlichen Meldeformulars
+// ---------------------------------------------------------------------
+// 1. Rechenaufgabe (Prinzip wie ALTCHA): Das Formular holt beim Öffnen eine signierte Aufgabe, der
+//    Browser sucht eine Zahl n mit sha256(salt + n) = challenge. Kostet ein Handy ~1 s, macht Massen-
+//    meldungen teuer. Jede Aufgabe gilt einmal, frühestens nach MELDE_MINDESTZEIT Sekunden (Bots füllen
+//    in Millisekunden aus) und höchstens 30 Minuten.
+// 2. Plausibilität: PLZ muss zu einer Region gehören, gleiche Meldung und mehr als 3 Meldungen je
+//    Telefonnummer in 6 Stunden werden abgewiesen, gesperrte Nummern still verworfen.
+// 3. Notschalter meldenAktiv in den Einstellungen, Obergrenze für alle zusammen pro Stunde.
+var MELDE_MAX_ZAHL = 50000;
+var MELDE_GUELTIG_MIN = 30;
+
+function hex_(bytes) {
+  return bytes.map(function (b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+function meldeSchluessel_() {
+  var props = PropertiesService.getScriptProperties();
+  var k = props.getProperty('MELDE_SCHLUESSEL');
+  if (!k) { k = Utilities.getUuid() + Utilities.getUuid(); props.setProperty('MELDE_SCHLUESSEL', k); }
+  return k;
+}
+
+function meldeAufgabe_() {
+  var salt = Utilities.getUuid().replace(/-/g, '').slice(0, 16) + '.' + Date.now();
+  var zahl = Math.floor(Math.random() * MELDE_MAX_ZAHL);
+  var challenge = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + zahl, Utilities.Charset.UTF_8));
+  var signatur = hex_(Utilities.computeHmacSha256Signature(challenge, meldeSchluessel_()));
+  return { algorithm: 'SHA-256', challenge: challenge, salt: salt, maxnumber: MELDE_MAX_ZAHL, signature: signatur };
+}
+
+function meldeAufgabePruefen_(p) {
+  p = p || {};
+  var falsch = fehler_('Die Sicherheitsprüfung ist abgelaufen – bitte das Formular neu laden und erneut senden', 400);
+  if (!p.challenge || !p.salt || p.number === undefined || !p.signature) throw falsch;
+  if (hex_(Utilities.computeHmacSha256Signature(String(p.challenge), meldeSchluessel_())) !== p.signature) throw falsch;
+  var ausgestellt = Number(String(p.salt).split('.')[1]) || 0;
+  var alter = (Date.now() - ausgestellt) / 1000;
+  if (alter > MELDE_GUELTIG_MIN * 60) throw falsch;
+  var mindest = Number(prop_('MELDE_MINDESTZEIT') || 8);
+  if (alter < mindest) throw fehler_('Bitte die Angaben kurz prüfen und dann noch einmal senden', 400);
+  var probe = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(p.salt) + Number(p.number), Utilities.Charset.UTF_8));
+  if (probe !== p.challenge) throw falsch;
+  if (CacheService.getScriptCache().get('pow_' + p.challenge)) throw fehler_('Diese Meldung wurde bereits gesendet', 409);
+}
+
+/** Erst nach erfolgreichem Speichern verbrauchen – bei einem Eingabefehler darf der Melder korrigieren und erneut senden */
+function meldeAufgabeVerbrauchen_(p) {
+  CacheService.getScriptCache().put('pow_' + p.challenge, '1', 21600);
+}
+
+function nurZiffern_(t) { return String(t || '').replace(/\D/g, ''); }
+
 /** Öffentliche Meldung: landet als „ungeprüft“ bei Regionalleitung und Admins */
 function melden_(d) {
   if (d.website) return { ok: true }; // Honigtopf-Feld: von Bots ausgefüllt, still verwerfen
+  var einst = einstellungenLesen_();
+  if (einst.meldenAktiv === false) {
+    throw fehler_('Das Meldeformular ist gerade abgeschaltet. Bei Gefahr bitte 112 oder 110 anrufen.', 503);
+  }
   if (!d.datenschutz) throw fehler_('Bitte der Datenschutzerklärung zustimmen', 400);
+  meldeAufgabePruefen_(d.aufgabe);
+  var daten = anfrageDaten_(d);
+  var tel = nurZiffern_(daten.auftraggeber.telefon);
+  if (tel.length < 6) throw fehler_('Bitte eine vollständige Telefonnummer angeben – wir rufen zurück', 400);
+  if ((einst.gesperrteNummern || []).indexOf(tel) >= 0) return { ok: true }; // gesperrt: still verwerfen
+  var region = regionFuerPlz_(daten.adresse.plz);
+  if (!region) {
+    throw fehler_('Für die PLZ ' + daten.adresse.plz + ' gibt es noch kein Netzwerk. Bitte wenden Sie sich an das örtliche Tierheim oder Ordnungsamt, bei Gefahr 112 oder 110.', 400);
+  }
   var cache = CacheService.getScriptCache();
   var n = Number(cache.get('meldungen') || 0);
-  if (n > 30) throw fehler_('Gerade gehen sehr viele Meldungen ein – bitte später erneut versuchen oder 112 anrufen', 429);
+  if (n > 60) throw fehler_('Gerade gehen sehr viele Meldungen ein – bitte später erneut versuchen oder 112 anrufen', 429);
+  var kTel = 'meldtel_' + tel, nTel = Number(cache.get(kTel) || 0);
+  if (nTel >= 3) throw fehler_('Von dieser Telefonnummer sind schon mehrere Meldungen eingegangen – die Regionalleitung meldet sich', 429);
+  var kGleich = 'meldgl_' + hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+    daten.adresse.plz + '|' + daten.beschreibung.toLowerCase().replace(/\s+/g, ' '), Utilities.Charset.UTF_8)).slice(0, 24);
+  if (cache.get(kGleich)) throw fehler_('Diese Meldung ist bereits bei uns eingegangen', 409);
   cache.put('meldungen', String(n + 1), 3600);
-  var daten = anfrageDaten_(d);
+  cache.put(kTel, String(nTel + 1), 21600);
+  cache.put(kGleich, '1', 21600);
   var erg = anfrageSpeichern_(daten, dringlichkeit_(d.dringlichkeit), 'oeffentlich', 'ungeprueft', null, d.fotos);
-  pushAnLeitung_(erg.region ? [erg.region] : [], 'Neue Meldung prüfen', erg.nummer + ' · ' + daten.adresse.ort + ': ' + daten.beschreibung, '#/anfragen/' + erg.id);
+  meldeAufgabeVerbrauchen_(d.aufgabe);
+  meldungPushAnLeitung_(erg, daten);
   return { nummer: erg.nummer };
+}
+
+/**
+ * Sammel-Push: höchstens eine Push-Nachricht „Meldung prüfen“ je Region alle 10 Minuten.
+ * Weitere Meldungen in dieser Zeit stehen in der Liste; die nächste Push-Nachricht nennt die Gesamtzahl.
+ */
+function meldungPushAnLeitung_(erg, daten) {
+  var cache = CacheService.getScriptCache();
+  var k = 'leitpush_' + (erg.region || '-');
+  if (cache.get(k)) return 0;
+  cache.put(k, '1', 600);
+  var offen = zeilen_('Anfragen').filter(function (a) { return a.status === 'ungeprueft' && a.region === erg.region; }).length;
+  var text = erg.nummer + ' · ' + daten.adresse.ort + ': ' + daten.beschreibung + (offen > 1 ? ' (insgesamt ' + offen + ' ungeprüft)' : '');
+  return pushAnLeitung_(erg.region ? [erg.region] : [], offen > 1 ? offen + ' Meldungen prüfen' : 'Neue Meldung prüfen', text, offen > 1 ? '#/anfragen' : '#/anfragen/' + erg.id);
+}
+
+/**
+ * Mehrere ungeprüfte Meldungen auf einmal verwerfen (ids oder alle:true = alle in den eigenen Regionen),
+ * optional die Telefonnummern der Melder sperren.
+ */
+function meldungenVerwerfen_(d, s) {
+  var ids = d.alle ? null : (Array.isArray(d.ids) ? d.ids.map(String) : []);
+  var treffer = zeilen_('Anfragen').filter(function (a) {
+    return a.status === 'ungeprueft' && a.quelle === 'oeffentlich' && (ids ? ids.indexOf(a.id) >= 0 : true) &&
+      (s.rolle === 'admin' || leitetRegion_(s, a.region));
+  });
+  if (!treffer.length) return { verworfen: 0, gesperrt: 0 };
+  var nummern = [];
+  mitSperre_(function () {
+    treffer.forEach(function (a) {
+      aktualisiereZeile_('Anfragen', 'id', a.id, function (r) {
+        r.status = 'verworfen'; r.abgeschlossenAm = txt_(jetzt_()); r.geaendert = txt_(jetzt_()); return r;
+      });
+      verlauf_(a.id, s, d.sperren ? 'Meldung verworfen, Telefonnummer gesperrt' : 'Meldung verworfen', 'verworfen', d.notiz);
+      var t = nurZiffern_((details_(a).auftraggeber || {}).telefon);
+      if (d.sperren && t.length >= 6 && nummern.indexOf(t) < 0) nummern.push(t);
+    });
+    if (nummern.length) {
+      var liste = einstellungenLesen_().gesperrteNummern || [];
+      nummern.forEach(function (t) { if (liste.indexOf(t) < 0) liste.push(t); });
+      var wert = JSON.stringify(liste.slice(-2000));
+      var gefunden = aktualisiereZeile_('Einstellungen', 'schluessel', 'gesperrteNummern', function (r) { r.wert = wert; return r; });
+      if (!gefunden) zeileAnhaengen_('Einstellungen', ['gesperrteNummern', wert]);
+    }
+  });
+  treffer.forEach(function (a) { protokoll_(s, d.sperren ? 'verworfen + gesperrt' : 'verworfen', a.id); });
+  return { verworfen: treffer.length, gesperrt: nummern.length };
 }
 
 function anfrageBearbeiten_(d, s) {

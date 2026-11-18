@@ -14,7 +14,7 @@
  */
 import { sicherSchreiben } from './api';
 import code from '../../../apps-script/Code.gs?raw';
-import { backendLaden, gasDienste, neueTabelle } from './gasMock.js';
+import { backendLaden, gasDienste, neueTabelle, sha256 } from './gasMock.js';
 
 const KEY = 'sos.demo.v4';
 const KEY_DATEIEN = 'sos.demo.dateien';
@@ -74,13 +74,25 @@ function laden() {
   const tabelle = neueTabelle(zustand);
   const props: Record<string, string> = { SHEET_ID: 'demo', ERSTER_ADMIN: 'Demo;Admin;123456' };
   backend = backendLaden(code, gasDienste({ tabelle, props, geocoder, dateien }));
-  if (!gespeichert) beispieldaten();
+  if (!gespeichert) {
+    props.MELDE_MINDESTZEIT = '0'; // Beispielmeldung ohne Wartezeit anlegen
+    beispieldaten();
+    delete props.MELDE_MINDESTZEIT;
+  }
   speichern();
 }
 
 function ok<T>(r: { ok: boolean; daten?: unknown; fehler?: string }): T {
   if (!r.ok) throw new Error('Demo-Daten: ' + r.fehler);
   return r.daten as T;
+}
+
+/** Rechenaufgabe des Meldeformulars für die Beispielmeldung lösen */
+function aufgabe(aufruf: (a: string, d: Record<string, unknown>) => { ok: boolean; daten?: unknown; fehler?: string }) {
+  const a = ok<{ challenge: string; salt: string; maxnumber: number }>(aufruf('melden_aufgabe', {}));
+  const hex = (b: number[]) => b.map((x) => x.toString(16).padStart(2, '0')).join('');
+  for (let n = 0; n <= a.maxnumber; n++) if (hex(sha256(a.salt + n)) === a.challenge) return { ...a, number: n };
+  throw new Error('Demo-Daten: Aufgabe nicht lösbar');
 }
 
 function vorMinuten(id: string, min: number, feld = 'erstellt') {
@@ -163,7 +175,7 @@ function beispieldaten() {
   vorMinuten(a1, 12);
   // 2) Öffentliche Meldung: akut, ungeprüft
   ok(aufruf('melden', {
-    dringlichkeit: 'akut', datenschutz: true,
+    dringlichkeit: 'akut', datenschutz: true, aufgabe: aufgabe(aufruf),
     beschreibung: 'Großer Hund ohne Halter läuft auf der Staatsstraße',
     vorfall: 'Seit etwa 20 Minuten, Autos müssen bremsen. Der Hund lässt sich nicht anfassen.',
     hund: { rasse: 'Schäferhund-Mix', groesse: 'groß', farbe: 'schwarz-braun', alter: '', geschlecht: '', merkmale: 'kein Halsband', name: '', anzahl: 1 },

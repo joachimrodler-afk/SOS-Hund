@@ -175,6 +175,10 @@ export interface Einstellungen {
   eskalationMin?: number;
   eskalationAkutMin?: number;
   auftraggeberMail?: boolean;
+  /** Notschalter: öffentliches Meldeformular an/aus */
+  meldenAktiv?: boolean;
+  /** nur Admin: Telefonnummern, deren Meldungen still verworfen werden */
+  gesperrteNummern?: string[];
 }
 
 export interface StartDaten {
