@@ -159,7 +159,18 @@ function Inhalt() {
             return `<div style="margin-top:4px"><b>${esc(r.name)}</b> (${n} PLZ): ${h ? `${h} Helfer, ${bereit} einsatzbereit` : '<span style="color:#b91c1c">keine Helfer</span>'}<br><span style="color:#64748b">Leitung: ${leiterLink(r)}</span></div>`;
           }).join('');
           const summe = w.haupt ? `<div style="margin-top:6px;font-size:14px"><b>${w.helfer.size} Helfer</b>, davon ${w.bereit.size} einsatzbereit</div>` : '';
-          layer.bindPopup(`<div style="min-width:220px">${kopf}${summe}${zeilen}</div>`);
+          // Alle Helfer im Bereich (jeder einmal), antippbar → Profil unter Zugänge
+          const personen = new Map<string, { id: string; name: string; bereit: boolean; leiter: boolean }>();
+          eintraege.forEach(([id]) => (alle.find((x) => x.id === id)?.helferListe ?? []).forEach((h) => personen.set(h.id, h)));
+          const liste = [...personen.values()].sort((x, y) => x.name.localeCompare(y.name, 'de'));
+          const namen = liste.length ? `<div style="margin-top:8px;max-height:220px;overflow:auto;border-top:1px solid #e2e8f0;padding-top:6px">${liste.map((h) =>
+            `<div style="padding:3px 0"><span title="${h.bereit ? 'einsatzbereit' : 'nicht einsatzbereit'}" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:${h.bereit ? '#16a34a' : '#cbd5e1'}"></span><a href="#/verwaltung/mitglieder?id=${encodeURIComponent(h.id)}" style="color:#1d4ed8;text-decoration:underline">${esc(h.name)}</a>${h.leiter ? ' <span style="color:#64748b">(Regionalleitung)</span>' : ''}</div>`).join('')}</div>` : '';
+          const inhalt = `<div style="min-width:220px">${kopf}${summe}${zeilen}${namen}</div>`;
+          // Genau ein Helfer → direkt zu seinem Profil, sonst Auswahl im Fenster
+          layer.on('click', (e: L.LeafletMouseEvent) => {
+            if (liste.length === 1) nav(`/verwaltung/mitglieder?id=${encodeURIComponent(liste[0].id)}`);
+            else L.popup({ maxWidth: 320 }).setLatLng(e.latlng).setContent(inhalt).openOn(karte);
+          });
           layer.bindTooltip(w.haupt ? `${f.properties.bereich}<br>${w.helfer.size}` : f.properties.bereich, { permanent: true, direction: 'center', className: 'plz-marke' });
           return;
         }
@@ -236,7 +247,7 @@ function Inhalt() {
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />keine Region</span>
           </div>
           <p className="text-xs text-slate-500">
-            Zahl = Helfer, die für PLZ im Bereich zuständig sind (Mitglieder und Regionalleiter, jeder nur einmal gezählt). Gebiet antippen zeigt die Aufteilung nach Regionen und wie viele einsatzbereit sind.
+            Zahl = Helfer, die für PLZ im Bereich zuständig sind (Mitglieder und Regionalleiter, jeder nur einmal gezählt). Gebiet antippen: mit genau einem Helfer geht es direkt zu seinem Profil, sonst erscheint eine Auswahl aller Helfer (grüner Punkt = einsatzbereit).
           </p>
         </div>
       )}

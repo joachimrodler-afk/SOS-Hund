@@ -53,6 +53,7 @@ export interface Region {
   /** IDs der Helfer (Mitglieder + Regionalleiter) bzw. der einsatzbereiten – für die Helfer-Karte */
   helferIds?: string[];
   bereitIds?: string[];
+  helferListe?: { id: string; name: string; bereit: boolean; leiter: boolean }[];
 }
 
 export interface Hund {

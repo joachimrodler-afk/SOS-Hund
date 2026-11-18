@@ -560,6 +560,9 @@ function regionenVerwaltung_() {
     var helfer = drin.filter(function (m) { return m.rolle === 'mitglied' || m.rolle === 'regionalleiter'; });
     r.helferIds = helfer.map(function (m) { return m.id; });
     r.bereitIds = helfer.filter(function (m) { return String(m.verfuegbar) !== 'false'; }).map(function (m) { return m.id; });
+    r.helferListe = helfer.map(function (m) {
+      return { id: m.id, name: (m.vorname + ' ' + m.nachname).trim(), bereit: String(m.verfuegbar) !== 'false', leiter: m.rolle === 'regionalleiter' };
+    }).sort(function (x, y) { return x.name.localeCompare(y.name, 'de'); });
     return r;
   }).sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
 }
