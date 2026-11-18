@@ -101,6 +101,7 @@ function Inhalt() {
       helferGesamt: new Set(aktive.flatMap((x) => x.helferIds ?? [])).size,
       bereitGesamt: new Set(aktive.flatMap((x) => x.bereitIds ?? [])).size,
       ohneHelfer: werte.filter((w) => w.haupt && !w.helfer.size).length,
+      ohneRegion: werte.filter((w) => !w.haupt).length,
       voll: werte.filter((w) => !w.anteile.get('')).length,
       teil: werte.filter((w) => w.anteile.get('') && w.anteile.get('')! < w.gesamt).length,
       frei: werte.filter((w) => w.anteile.get('') === w.gesamt).length,
@@ -222,10 +223,11 @@ function Inhalt() {
           {kachel(ohneLeitung, 'Regionen ohne Leitung', ohneLeitung > 0)}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
           {kachel(a.helferGesamt, 'Helfer')}
           {kachel(a.bereitGesamt, 'einsatzbereit')}
-          {kachel(a.ohneHelfer, 'Bereiche ohne Helfer', a.ohneHelfer > 0)}
+          {kachel(a.ohneHelfer, 'Bereiche ohne Helfer (rot: Region, aber niemand eingetragen)', a.ohneHelfer > 0)}
+          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Bereiche ohne Region (grau: noch kein Netzwerk)</p></div>
         </div>
       )}
 
