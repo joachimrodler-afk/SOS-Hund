@@ -50,6 +50,9 @@ export interface Region {
   leiter?: string[];
   /** IDs der Regionalleiter, gleiche Reihenfolge wie leiter */
   leiterIds?: string[];
+  /** IDs der Helfer (Mitglieder + Regionalleiter) bzw. der einsatzbereiten – für die Helfer-Karte */
+  helferIds?: string[];
+  bereitIds?: string[];
 }
 
 export interface Hund {

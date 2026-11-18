@@ -17,7 +17,7 @@ function Inhalt() {
         <Zeile zu="/verwaltung/mitglieder" icon="personen" titel="Zugänge" text={admin ? 'Mitglieder, Regionalleiter, Behörden, Admins' : 'Mitglieder und Behörden deiner Regionen'} />
         <Zeile zu="/verwaltung/regionen" icon="karte" titel="Regionen" text={admin ? 'PLZ-Bereiche und Nachbarregionen' : 'Übersicht'} />
         {admin && <Zeile zu="/nachrichten" icon="sprechblase" titel="Nachrichten" text="Von Regionalleitern lesen und beantworten" rechts={zahl(daten?.nachrichten)} />}
-        {admin && <Zeile zu="/verwaltung/karte" icon="karte" titel="Deutschlandkarte" text="Vergebene Gebiete, Regionalleiter, freie PLZ-Bereiche" />}
+        {admin && <Zeile zu="/verwaltung/karte" icon="karte" titel="Deutschlandkarte" text="Regionalleiter und Helfer, vergebene Gebiete und Lücken" />}
         <Zeile zu="/verwaltung/mitteilung" icon="glocke" titel="Mitteilung senden" text={admin ? 'Push an alle oder einzelne Regionen' : 'Push an deine Regionen'} />
         <Zeile zu="/export" icon="download" titel="Export" text="Anfragen als CSV oder PDF" />
         {admin && <Zeile zu="/verwaltung/einstellungen" icon="zahnrad" titel="Einstellungen" text="Texte, Eskalation, Datenschutz" />}

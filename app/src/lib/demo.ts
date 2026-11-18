@@ -16,7 +16,7 @@ import { sicherSchreiben } from './api';
 import code from '../../../apps-script/Code.gs?raw';
 import { backendLaden, gasDienste, neueTabelle, sha256 } from './gasMock.js';
 
-const KEY = 'sos.demo.v4';
+const KEY = 'sos.demo.v5';
 const KEY_DATEIEN = 'sos.demo.dateien';
 
 export const DEMO_ZUGAENGE = [
@@ -58,7 +58,7 @@ function speichern() {
 }
 
 function laden() {
-  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); } catch { /* alte Demo-Daten */ }
+  try { localStorage.removeItem('sos.demo.v1'); localStorage.removeItem('sos.demo.v2'); localStorage.removeItem('sos.demo.v3'); localStorage.removeItem('sos.demo.v4'); } catch { /* alte Demo-Daten */ }
   let gespeichert: Zustand | null = null;
   try {
     gespeichert = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -151,10 +151,24 @@ function beispieldaten() {
     ['Nürnberg', '90*, 91*', 'Norbert', 'Neubauer'],
     ['Regensburg', '93*', 'Rosa', 'Reindl'],
   ];
+  // Dazu Helfer ohne Anmeldung (nur für die Helfer-Karte): unterschiedlich viele je Region, einige nicht einsatzbereit
+  const VORNAMEN = ['Anna', 'Ben', 'Clara', 'David', 'Eva', 'Finn', 'Gabi', 'Hannes', 'Ida', 'Jonas', 'Kerstin', 'Lukas', 'Marie', 'Nils', 'Paula', 'Robert'];
+  const NACHNAMEN = ['Bauer', 'Becker', 'Hoffmann', 'Koch', 'Lang', 'Meyer', 'Neumann', 'Richter', 'Schulz', 'Vogel', 'Weber', 'Wolf'];
+  const HELFER_JE_REGION = [9, 4, 0, 14, 3, 6, 1, 5, 2, 7, 11, 8, 0, 2, 10, 1, 12, 3, 6, 4];
+  let nr = 0;
+  const helferDazu = (regionId: string, anzahl: number) => {
+    for (let k = 0; k < anzahl; k++, nr++) {
+      intern.zeileAnhaengen_('Mitglieder', ['mh' + nr, VORNAMEN[nr % VORNAMEN.length], NACHNAMEN[(nr * 7) % NACHNAMEN.length], 'mitglied', regionId,
+        "'0160 " + String(5000000 + nr), '', '', '', '', 'true', nr % 4 === 3 ? 'false' : 'true', '{}', new Date().toISOString(), '']);
+    }
+  };
   DEMO_REGIONEN.forEach(([region, plz, vorname, nachname], i) => {
     const id = ok<{ id: string }>(aufruf('region_speichern', { name: region, plz }, t)).id;
     neu(vorname, nachname, 'regionalleiter', [id], String(700000 + i), { telefon: `0151 ${String(4000000 + i * 1111)}` });
+    helferDazu(id, HELFER_JE_REGION[i]);
   });
+  // Eine Region ohne Leitung und ohne Helfer – so sieht eine Lücke auf der Karte aus
+  ok(aufruf('region_speichern', { name: 'Allgäu', plz: '87*' }, t));
 
   const login = (name: string, pin: string) => ok<{ token: string }>(aufruf('login', { name, pin })).token;
   const vera = login('Vera Veterinär', '444444');

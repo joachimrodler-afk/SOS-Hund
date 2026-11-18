@@ -75,6 +75,8 @@ assert.deepEqual(rita.regionen, [muc]);
 const rMuc = ok(aufruf('regionen_verwaltung', {}, admin.token)).find((r) => r.id === muc);
 assert.deepEqual(rMuc.leiter, ['Rita Leiter'], 'Regionalleiter je Region');
 assert.deepEqual(rMuc.leiterIds, [rita.mitgliedId], 'IDs der Regionalleiter');
+assert.ok(rMuc.helferIds.includes(rita.mitgliedId), 'Helfer je Region');
+assert.ok(rMuc.bereitIds.every((id) => rMuc.helferIds.includes(id)), 'einsatzbereite Helfer');
 const kontakt = ok(aufruf('admins_kontakt', {}, rita.token));
 assert.equal(kontakt.length, 1, 'Regionalleiter sieht den Admin');
 assert.equal(kontakt[0].id, admin.mitgliedId);

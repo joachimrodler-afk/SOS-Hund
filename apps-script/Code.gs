@@ -556,6 +556,10 @@ function regionenVerwaltung_() {
     var leiter = drin.filter(function (m) { return m.rolle === 'regionalleiter'; });
     r.leiter = leiter.map(function (m) { return (m.vorname + ' ' + m.nachname).trim(); });
     r.leiterIds = leiter.map(function (m) { return m.id; });
+    // Helfer (Mitglieder und Regionalleiter) für die Helfer-Karte; IDs, damit Mehrfach-Regionen nicht doppelt zählen
+    var helfer = drin.filter(function (m) { return m.rolle === 'mitglied' || m.rolle === 'regionalleiter'; });
+    r.helferIds = helfer.map(function (m) { return m.id; });
+    r.bereitIds = helfer.filter(function (m) { return String(m.verfuegbar) !== 'false'; }).map(function (m) { return m.id; });
     return r;
   }).sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
 }

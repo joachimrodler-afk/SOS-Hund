@@ -21,6 +21,7 @@ export function backendLaden(
     setup: () => void;
     alleFuenfMinuten: () => void;
     mitgliedSchreiben_: (m: Zeile, pin: string) => string;
+    zeileAnhaengen_: (blatt: string, werte: unknown[]) => void;
     aktualisiereZeile_: (blatt: string, spalte: string, wert: string, fn: (r: Zeile) => Zeile) => boolean;
     [k: string]: unknown;
   };
