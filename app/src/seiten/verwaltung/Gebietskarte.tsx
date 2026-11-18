@@ -26,6 +26,10 @@ interface Auswertung {
   bereit: Set<string>;
   /** mindestens eine Region im Bereich ohne Regionalleitung */
   ohneLeitung: boolean;
+  /** mindestens eine Region im Bereich mit Regionalleitung */
+  mitLeitung: boolean;
+  /** niemand vor Ort: keine Region, oder weder Regionalleitung noch Helfer */
+  leer: boolean;
 }
 
 type Modus = 'leiter' | 'helfer';
@@ -87,6 +91,8 @@ function Inhalt() {
         helfer: new Set(regs.flatMap((x) => x.helferIds ?? [])),
         bereit: new Set(regs.flatMap((x) => x.bereitIds ?? [])),
         ohneLeitung: regs.some((x) => !x.leiter?.length),
+        mitLeitung: regs.some((x) => !!x.leiter?.length),
+        leer: !regs.length || (!regs.some((x) => !!x.leiter?.length) && !regs.some((x) => x.helferIds?.length)),
       });
     }
     const gesamt = bereiche.reduce((n, b) => n + b.properties.plz.length, 0);
@@ -97,9 +103,9 @@ function Inhalt() {
       proBereich, proRegion, konfliktPlz, gesamt, vergeben,
       helferGesamt: new Set(aktive.flatMap((x) => x.helferIds ?? [])).size,
       bereitGesamt: new Set(aktive.flatMap((x) => x.bereitIds ?? [])).size,
-      ohneHelfer: werte.filter((w) => w.haupt && !w.helfer.size).length,
-      ohneRegion: werte.filter((w) => !w.haupt).length,
-      ohneLeitungGebiete: werte.filter((w) => w.haupt && w.ohneLeitung).length,
+      ohneHelfer: werte.filter((w) => !w.leer && !w.helfer.size).length, // nur Regionalleitung
+      ohneNetzwerk: werte.filter((w) => w.leer).length, // niemand vor Ort
+      ohneLeitungGebiete: werte.filter((w) => !w.leer && !w.mitLeitung).length, // nur Helfer
       voll: werte.filter((w) => !w.anteile.get('')).length,
       teil: werte.filter((w) => w.anteile.get('') && w.anteile.get('')! < w.gesamt).length,
       frei: werte.filter((w) => w.anteile.get('') === w.gesamt).length,
@@ -133,20 +139,20 @@ function Inhalt() {
         if (modus === 'helfer') {
           return {
             color: '#ffffff', weight: 1,
-            fillColor: w.haupt ? helferFarbe(w.helfer.size) : FREI,
-            fillOpacity: w.haupt ? (w.helfer.size ? 0.7 : 0.45) : 0.2,
+            fillColor: w.leer ? FREI : helferFarbe(w.helfer.size),
+            fillOpacity: w.leer ? 0.25 : w.helfer.size ? 0.7 : 0.45,
           };
         }
         const anteil = 1 - (w.anteile.get('') ?? 0) / w.gesamt;
-        const hauptMitLeitung = !!alle.find((x) => x.id === w.haupt)?.leiter?.length;
+        const hauptMitLeitung = w.mitLeitung;
         // Region mit Regionalleitung = ihre Farbe; ohne Leitung = hell-orange; teils/teils = orange gestrichelter Rand
         const gemischt = hauptMitLeitung && w.ohneLeitung;
         return {
           color: w.konflikte ? '#b91c1c' : gemischt ? '#d97706' : '#ffffff',
           weight: w.konflikte || gemischt ? 2.5 : 1,
           dashArray: w.konflikte || gemischt ? '4 3' : undefined,
-          fillColor: !w.haupt ? FREI : hauptMitLeitung ? MIT_LEITUNG : OHNE_LEITUNG,
-          fillOpacity: !w.haupt ? 0.25 : 0.3 + 0.3 * anteil,
+          fillColor: w.leer ? FREI : hauptMitLeitung ? MIT_LEITUNG : OHNE_LEITUNG,
+          fillOpacity: w.leer ? 0.25 : 0.3 + 0.3 * anteil,
         };
       },
       onEachFeature: (f, layer) => {
@@ -158,7 +164,7 @@ function Inhalt() {
             if (!id) return `<div style="margin-top:4px;color:#64748b">nicht vergeben: ${n} PLZ</div>`;
             const r = alle.find((x) => x.id === id)!;
             const h = r.helferIds?.length ?? 0, bereit = r.bereitIds?.length ?? 0;
-            return `<div style="margin-top:4px"><b>${esc(r.name)}</b> (${n} PLZ): ${h ? `${h} Helfer, ${bereit} einsatzbereit` : '<span style="color:#b91c1c">keine Helfer</span>'}<br><span style="color:#64748b">Leitung: ${leiterLink(r)}</span></div>`;
+            return `<div style="margin-top:4px"><b>${esc(r.name)}</b> (${n} PLZ): ${h ? `${h} Helfer, ${bereit} einsatzbereit` : '<span style="color:#b91c1c">nur Regionalleitung, keine Helfer</span>'}<br><span style="color:#64748b">Leitung: ${leiterLink(r)}</span></div>`;
           }).join('');
           const summe = w.haupt ? `<div style="margin-top:6px;font-size:14px"><b>${w.helfer.size} Helfer</b>, davon ${w.bereit.size} einsatzbereit</div>` : '';
           // Alle Helfer im Bereich (jeder einmal), antippbar → Profil unter Zugänge
@@ -178,7 +184,7 @@ function Inhalt() {
         }
         const zeilen = eintraege.map(([id, n]) => {
           const r = alle.find((x) => x.id === id);
-          const punkt = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${!id ? FREI : r?.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG}"></span>`;
+          const punkt = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${!id || (!r?.leiter?.length && !r?.helferIds?.length) ? FREI : r?.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG}"></span>`;
           return `<div style="margin-top:4px">${punkt}<b>${esc(name(id))}</b>: ${n} PLZ (${prozent(n, w.gesamt)} %)${r ? `<br><span style="color:#64748b">Leitung: ${leiterLink(r)}</span>` : ''}</div>`;
         }).join('');
         const konflikt = w.konflikte ? `<div style="margin-top:6px;color:#b91c1c">⚠ ${w.konflikte} PLZ passen gleich genau zu mehreren Regionen</div>` : '';
@@ -220,15 +226,15 @@ function Inhalt() {
         <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
           {kachel(alle.filter((r) => r.aktiv !== false).length, 'Regionen')}
           {kachel(new Set(alle.filter((r) => r.aktiv !== false).flatMap((r) => r.leiterIds ?? [])).size, 'Regionalleiter')}
-          <div className="karte p-3"><p className={`text-2xl font-bold ${a.ohneLeitungGebiete ? 'text-amber-600' : 'text-himmel-800 dark:text-himmel-200'}`}>{a.ohneLeitungGebiete}</p><p className="text-xs text-slate-500">Gebiete ohne Regionalleitung</p></div>
-          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Gebiete noch ohne Netzwerk</p></div>
+          <div className="karte p-3"><p className={`text-2xl font-bold ${a.ohneLeitungGebiete ? 'text-amber-600' : 'text-himmel-800 dark:text-himmel-200'}`}>{a.ohneLeitungGebiete}</p><p className="text-xs text-slate-500">Gebiete nur mit Helfern (ohne Regionalleitung)</p></div>
+          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneNetzwerk}</p><p className="text-xs text-slate-500">Gebiete ohne Netzwerk (niemand vor Ort)</p></div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
           {kachel(a.helferGesamt, 'Helfer')}
           {kachel(a.bereitGesamt, 'einsatzbereit')}
-          {kachel(a.ohneHelfer, 'Gebiete ohne Helfer', a.ohneHelfer > 0)}
-          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneRegion}</p><p className="text-xs text-slate-500">Gebiete noch ohne Netzwerk</p></div>
+          {kachel(a.ohneHelfer, 'Gebiete nur mit Regionalleitung (ohne Helfer)', a.ohneHelfer > 0)}
+          <div className="karte p-3"><p className="text-2xl font-bold text-slate-500">{a.ohneNetzwerk}</p><p className="text-xs text-slate-500">Gebiete ohne Netzwerk (niemand vor Ort)</p></div>
         </div>
       )}
 
@@ -238,11 +244,11 @@ function Inhalt() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: MIT_LEITUNG }} />mit Regionalleitung</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: OHNE_LEITUNG }} />ohne Regionalleitung</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />noch kein Netzwerk</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: OHNE_LEITUNG }} />nur Helfer, ohne Regionalleitung</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />ohne Netzwerk (niemand vor Ort)</span>
           </div>
           <p className="text-xs text-slate-500">
-            Grün = Gebiet mit Regionalleitung. Orange = Region vorhanden, aber niemand leitet sie – öffentliche Meldungen prüfen dort die Admins.
+            Grün = Gebiet mit Regionalleitung. Orange = dort gibt es Helfer, aber keine Regionalleitung – öffentliche Meldungen prüfen die Admins. Grau = niemand vor Ort, weder Regionalleitung noch Helfer.
             Grün mit orange gestricheltem Rand = Gebiet teils mit, teils ohne Regionalleitung. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
             Insgesamt haben {prozent(a.vergeben, a.gesamt)} % aller Postleitzahlen ein Netzwerk.
             Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
@@ -255,10 +261,10 @@ function Inhalt() {
               <span key={x.ab} className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: x.farbe }} />{x.text}</span>
             ))}
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: KEINE_HELFER }} />keine Helfer</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />noch kein Netzwerk</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />ohne Netzwerk (niemand vor Ort)</span>
           </div>
           <p className="text-xs text-slate-500">
-            Rot = Gebiet gehört zu einer Region, aber dort ist noch kein Helfer eingetragen. Grau = dort gibt es noch keine Region, Meldungen von dort erreichen niemand.
+            Rot = dort gibt es eine Regionalleitung, aber noch keine Helfer. Grau = niemand vor Ort, weder Regionalleitung noch Helfer – eine Anfrage von dort erreicht erst über die Eskalation die Nachbarn.
             Zahl = Helfer, die für PLZ im Bereich zuständig sind (nur Mitglieder, jeder nur einmal gezählt – Regionalleiter zeigt die andere Ansicht). Gebiet antippen: mit genau einem Helfer geht es direkt zu seinem Profil, sonst erscheint eine Auswahl aller Helfer (grüner Punkt = einsatzbereit).
           </p>
         </div>
@@ -279,7 +285,7 @@ function Inhalt() {
           const h = r.helferIds?.length ?? 0;
           return (
             <div key={r.id} className={`flex items-start gap-3 px-4 py-3 ${r.aktiv === false ? 'opacity-60' : ''}`}>
-              <span className="mt-1 h-4 w-4 shrink-0 rounded" style={{ background: modus === 'helfer' ? helferFarbe(h) : r.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG }} />
+              <span className="mt-1 h-4 w-4 shrink-0 rounded" style={{ background: !r.leiter?.length && !h ? FREI : modus === 'helfer' ? helferFarbe(h) : r.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG }} />
               <div className="flex-1">
                 <p className="font-semibold">{r.name}{r.aktiv === false && ' (inaktiv, nicht auf der Karte)'}</p>
                 {modus === 'helfer' && (
