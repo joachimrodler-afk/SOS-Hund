@@ -6,7 +6,7 @@ import { NurAngemeldet } from '../../components/Anmelden';
 import { Fehler, Hinweis, Laden, Seite, useLaden } from '../../components/ui';
 import { api } from '../../lib/api';
 import type { Region } from '../../lib/model';
-import { REGION_FARBEN, zuordnen } from '../../lib/plz';
+import { zuordnen } from '../../lib/plz';
 
 interface Bereich {
   type: 'Feature';
@@ -38,7 +38,8 @@ const HELFER_STUFEN = [
   { ab: 1, farbe: '#93c5fd', text: '1–2' },
 ];
 const KEINE_HELFER = '#ef4444';
-const OHNE_LEITUNG = '#fdba74';
+const MIT_LEITUNG = '#16a34a';
+const OHNE_LEITUNG = '#f59e0b';
 const helferFarbe = (n: number) => HELFER_STUFEN.find((x) => n >= x.ab)?.farbe ?? KEINE_HELFER;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -62,11 +63,6 @@ function Inhalt() {
   const setModus = (m: Modus) => setParams(m === 'helfer' ? { modus: 'helfer' } : {}, { replace: true });
 
   const alle = useMemo(() => regionen.daten ?? [], [regionen.daten]);
-  const farbe = useMemo(() => {
-    const m = new Map<string, string>();
-    alle.forEach((r, i) => m.set(r.id, REGION_FARBEN[i % REGION_FARBEN.length]));
-    return m;
-  }, [alle]);
   const name = (id: string) => (id ? alle.find((r) => r.id === id)?.name ?? '?' : 'nicht vergeben');
 
   const auswertung = useMemo(() => {
@@ -149,8 +145,8 @@ function Inhalt() {
           color: w.konflikte ? '#b91c1c' : gemischt ? '#d97706' : '#ffffff',
           weight: w.konflikte || gemischt ? 2.5 : 1,
           dashArray: w.konflikte || gemischt ? '4 3' : undefined,
-          fillColor: !w.haupt ? FREI : hauptMitLeitung ? farbe.get(w.haupt) : OHNE_LEITUNG,
-          fillOpacity: !w.haupt ? 0.25 : hauptMitLeitung ? 0.35 + 0.45 * anteil : 0.45,
+          fillColor: !w.haupt ? FREI : hauptMitLeitung ? MIT_LEITUNG : OHNE_LEITUNG,
+          fillOpacity: !w.haupt ? 0.25 : 0.3 + 0.3 * anteil,
         };
       },
       onEachFeature: (f, layer) => {
@@ -182,7 +178,7 @@ function Inhalt() {
         }
         const zeilen = eintraege.map(([id, n]) => {
           const r = alle.find((x) => x.id === id);
-          const punkt = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${id ? farbe.get(id) : FREI}"></span>`;
+          const punkt = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${!id ? FREI : r?.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG}"></span>`;
           return `<div style="margin-top:4px">${punkt}<b>${esc(name(id))}</b>: ${n} PLZ (${prozent(n, w.gesamt)} %)${r ? `<br><span style="color:#64748b">Leitung: ${leiterLink(r)}</span>` : ''}</div>`;
         }).join('');
         const konflikt = w.konflikte ? `<div style="margin-top:6px;color:#b91c1c">⚠ ${w.konflikte} PLZ passen gleich genau zu mehreren Regionen</div>` : '';
@@ -198,7 +194,7 @@ function Inhalt() {
       },
     }).addTo(karte);
     return () => { ebene.remove(); karte.closePopup(); };
-  }, [modus, flaechen.daten, auswertung, farbe, alle, nav]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [modus, flaechen.daten, auswertung, alle, nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (regionen.fehler || flaechen.fehler) return <Fehler fehler={regionen.fehler || flaechen.fehler} nochmal={() => { void regionen.neu(); void flaechen.neu(); }} />;
   if (!regionen.daten || !flaechen.daten) return <Laden text="Karte laden …" />;
@@ -239,12 +235,19 @@ function Inhalt() {
       <div ref={el} className="h-[70vh] w-full overflow-hidden rounded-2xl ring-1 ring-himmel-200 dark:ring-slate-700" role="region" aria-label={modus === 'helfer' ? 'Deutschlandkarte der Helfer' : 'Deutschlandkarte der Regionalleiter'} />
 
       {modus === 'leiter' ? (
-        <p className="text-xs text-slate-500">
-          Farbig = Gebiet mit Regionalleitung (jede Region eine eigene Farbe). Hell-orange = Gebiet ohne Regionalleitung, öffentliche Meldungen prüfen dort die Admins.
-          Orange gestrichelt = Gebiet teils mit, teils ohne Regionalleitung. Grau = dort gibt es noch kein Netzwerk. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
-          Insgesamt haben {prozent(a.vergeben, a.gesamt)} % aller Postleitzahlen ein Netzwerk.
-          Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
-        </p>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: MIT_LEITUNG }} />mit Regionalleitung</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: OHNE_LEITUNG }} />ohne Regionalleitung</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: FREI }} />noch kein Netzwerk</span>
+          </div>
+          <p className="text-xs text-slate-500">
+            Grün = Gebiet mit Regionalleitung. Orange = Region vorhanden, aber niemand leitet sie – öffentliche Meldungen prüfen dort die Admins.
+            Grün mit orange gestricheltem Rand = Gebiet teils mit, teils ohne Regionalleitung. Rot gestrichelt = Überschneidung (eine PLZ passt zu mehreren Regionen).
+            Insgesamt haben {prozent(a.vergeben, a.gesamt)} % aller Postleitzahlen ein Netzwerk.
+            Gebiet antippen: mit einem Regionalleiter geht es direkt zu seinem Profil, sonst erscheinen die Details. Die Grenzen der 2-stelligen PLZ-Bereiche sind genähert.
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
@@ -276,7 +279,7 @@ function Inhalt() {
           const h = r.helferIds?.length ?? 0;
           return (
             <div key={r.id} className={`flex items-start gap-3 px-4 py-3 ${r.aktiv === false ? 'opacity-60' : ''}`}>
-              <span className="mt-1 h-4 w-4 shrink-0 rounded" style={{ background: modus === 'helfer' ? helferFarbe(h) : farbe.get(r.id) }} />
+              <span className="mt-1 h-4 w-4 shrink-0 rounded" style={{ background: modus === 'helfer' ? helferFarbe(h) : r.leiter?.length ? MIT_LEITUNG : OHNE_LEITUNG }} />
               <div className="flex-1">
                 <p className="font-semibold">{r.name}{r.aktiv === false && ' (inaktiv, nicht auf der Karte)'}</p>
                 {modus === 'helfer' && (
